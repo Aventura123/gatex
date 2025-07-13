@@ -33,5 +33,4 @@ export const metadata: Metadata = {
       { url: '/icons/icon-144x144.png', sizes: '144x144', type: 'image/png' },
     ],
   },
-  manifest: '/manifest.json',
 };

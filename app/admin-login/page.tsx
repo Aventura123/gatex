@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "../../components/global.css";
-import { logSystemActivity } from "../../utils/logSystem";
+// import { logSystemActivity } from "../../utils/logSystem"; // Temporariamente comentado
 import Layout from '../../components/Layout';
 
 const AdminLoginPage: React.FC = () => {
@@ -103,7 +103,8 @@ const AdminLoginPage: React.FC = () => {
             localStorage.setItem("userPhoto", data.admin.photoURL);
           }
           
-          // Register login in the system logs
+          // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+          /*
           await logSystemActivity(
             "login",
             data.admin.name || data.admin.username || username,
@@ -114,6 +115,7 @@ const AdminLoginPage: React.FC = () => {
               loginMethod: "admin-portal"
             }
           );
+          */
         } else {
           console.warn("Admin data not found in response");
         }
@@ -125,7 +127,8 @@ const AdminLoginPage: React.FC = () => {
         console.error("Error during login:", data.error);
         setError(data.error || "Invalid username or password");
         
-        // Register failed login attempt
+        // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+        /*
         await logSystemActivity(
           "login",
           username,
@@ -136,12 +139,14 @@ const AdminLoginPage: React.FC = () => {
             loginMethod: "admin-portal"
           }
         );
+        */
       }
     } catch (err: any) {
       console.error("Error during login process:", err);
       setError(err.message || "An error occurred. Please try again.");
       
-      // Register login error
+      // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+      /*
       await logSystemActivity(
         "login",
         username,
@@ -152,6 +157,7 @@ const AdminLoginPage: React.FC = () => {
           loginMethod: "admin-portal"
         }
       );
+      */
     } finally {
       setIsLoading(false);
     }

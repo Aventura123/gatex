@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import '../components/global.css';
-import AdPopup from './AdPopup';
 import UserProfileButton from './UserProfileButton';
-import ContactForm from './ContactForm';
 
 const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,7 +169,7 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 JOBS
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {jobsDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleJobsEnter}
@@ -193,7 +191,7 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 TOOLS
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {toolsDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleToolsEnter}
@@ -213,7 +211,7 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 LEARN
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {learnDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleLearnEnter}
@@ -306,8 +304,7 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       </nav>      {/* Main Content with spacing for glassmorphism header */}
       <main className="px-0 sm:px-0 md:px-0 lg:px-0 w-full">{children}</main>
 
-      {/* Advertisement Popup */}
-      <AdPopup />      {/* Modern Footer - Only show contact form on index page */}
+      {/* Modern Footer - Only show contact form on index page */}
       <footer id="main-footer" className="bg-[#FF6A00] text-black border-t-4 border-orange-500 mt-0">
         {pathname === '/' && (
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -357,16 +354,12 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 </ul>
               </div>
             </div>
-            {/* Right: Contact Form (only on index) */}
+            {/* Right: Contact Info */}
             <div className="flex flex-col justify-center">
               <div className="p-0 m-0">
-                <ContactForm
-                  title=""
-                  submitButtonText="Send Message"
-                  className="border-0 bg-transparent p-0 contact-footer-form"
-                  defaultSubject="Contact from Gate33 Website"
-                  showSubjectField={false}
-                />
+                <p className="text-black/80 text-sm">
+                  For admin support, please contact: info@gate33.net
+                </p>
               </div>
             </div>
           </div>

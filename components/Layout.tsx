@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import '../components/global.css';
-import AdPopup from './AdPopup';
 import UserProfileButton from './UserProfileButton';
-import ContactForm from './ContactForm';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,17 +169,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 JOBS
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {jobsDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleJobsEnter}
                   onMouseLeave={handleJobsLeave}
                 >
                   <div className="py-2">
-                    <a href="/jobs" className={getMenuItemClasses('/jobs')}>JOB-BOARD</a>
-                    {!isProduction && (
-                      <a href="/instant-jobs" className={getMenuItemClasses('/instant-jobs')}>INSTANT JOBS</a>
-                    )}
+                    <span className="block px-4 py-2 text-base font-verdana font-normal leading-[24px] tracking-normal uppercase text-gray-400 cursor-not-allowed">JOB-BOARD (Coming Soon)</span>
+                    <span className="block px-4 py-2 text-base font-verdana font-normal leading-[24px] tracking-normal uppercase text-gray-400 cursor-not-allowed">INSTANT JOBS (Coming Soon)</span>
                   </div>
                 </div>
               )}
@@ -193,15 +189,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 TOOLS
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {toolsDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleToolsEnter}
                   onMouseLeave={handleToolsLeave}
                 >
                   <div className="py-2">
-                    <a href="/crypto-tools" className={getMenuItemClasses('/crypto-tools')}>CRYPTO TOOLS</a>
-                    <a href="/nft" className={getMenuItemClasses('/nft')}>NFT</a>
+                    <span className="block px-4 py-2 text-base font-verdana font-normal leading-[24px] tracking-normal uppercase text-gray-400 cursor-not-allowed">CRYPTO TOOLS (Coming Soon)</span>
+                    <span className="block px-4 py-2 text-base font-verdana font-normal leading-[24px] tracking-normal uppercase text-gray-400 cursor-not-allowed">NFT (Coming Soon)</span>
                   </div>
                 </div>
               )}
@@ -213,13 +209,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             >
               <button className="flex items-center gap-1 hover:text-orange-500 transition-colors font-verdana text-sm font-bold leading-[18px] tracking-normal text-center">
                 LEARN
-                <img src="/Vectors/Vector.svg" alt="dropdown" className="w-3 h-2" />
+                <img src="/icons/Vector.png" alt="dropdown" className="w-3 h-2" />
               </button>              {learnDropdownOpen && (
                 <div className="header-dropdown"
                   onMouseEnter={handleLearnEnter}
                   onMouseLeave={handleLearnLeave}
                 >                  <div className="py-2">
-                    <a href="/learn2earn" className={getMenuItemClasses('/learn2earn')}>LEARN2EARN</a>
+                    <span className="block px-4 py-2 text-base font-verdana font-normal leading-[24px] tracking-normal uppercase text-gray-400 cursor-not-allowed">LEARN2EARN (Coming Soon)</span>
                   </div>
                 </div>
               )}
@@ -257,12 +253,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="mb-4">
             <h4 className="text-orange-500 font-bold text-lg mb-2">JOBS</h4>
             <div className="ml-2 border-l border-gray-700 pl-3">
-              <a href="/jobs" className={getMobileMenuItemClasses('/jobs')} onClick={() => setMenuOpen(false)}>JOB-BOARD</a>
-              {isProduction ? (
-                <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">INSTANT JOBS (Coming Soon)</span>
-              ) : (
-                <a href="/instant-jobs" className={getMobileMenuItemClasses('/instant-jobs')} onClick={() => setMenuOpen(false)}>INSTANT JOBS</a>
-              )}
+              <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">JOB-BOARD (Coming Soon)</span>
+              <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">INSTANT JOBS (Coming Soon)</span>
             </div>
           </div>
           
@@ -270,8 +262,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="mb-4">
             <h4 className="text-orange-500 font-bold text-lg mb-2">TOOLS</h4>
             <div className="ml-2 border-l border-gray-700 pl-3">
-              <a href="/crypto-tools" className={getMobileMenuItemClasses('/crypto-tools')} onClick={() => setMenuOpen(false)}>CRYPTO TOOLS</a>
-              <a href="/nft" className={getMobileMenuItemClasses('/nft')} onClick={() => setMenuOpen(false)}>NFT</a>
+              <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">CRYPTO TOOLS (Coming Soon)</span>
+              <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">NFT (Coming Soon)</span>
             </div>
           </div>
           
@@ -279,7 +271,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="mb-4">
             <h4 className="text-orange-500 font-bold text-lg mb-2">LEARN</h4>
             <div className="ml-2 border-l border-gray-700 pl-3">
-              <a href="/learn2earn" className={getMobileMenuItemClasses('/learn2earn')} onClick={() => setMenuOpen(false)}>LEARN2EARN</a>
+              <span className="block py-1.5 text-base text-gray-500 cursor-not-allowed opacity-60">LEARN2EARN (Coming Soon)</span>
             </div>
           </div>
           
@@ -305,8 +297,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </nav>      {/* Main Content with spacing for glassmorphism header */}
       <main className="px-0 sm:px-0 md:px-0 lg:px-0 w-full">{children}</main>
 
-      {/* Advertisement Popup */}
-      <AdPopup />      {/* Modern Footer - Only show contact form on index page */}
+      {/* Modern Footer - Only show contact form on index page */}
       <footer id="main-footer" className="bg-[#FF6A00] text-black border-t-4 border-orange-500 mt-0">
         {pathname === '/' && (
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -356,16 +347,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </ul>
               </div>
             </div>
-            {/* Right: Contact Form (only on index) */}
+            {/* Right: Contact Info */}
             <div className="flex flex-col justify-center">
               <div className="p-0 m-0">
-                <ContactForm
-                  title=""
-                  submitButtonText="Send Message"
-                  className="border-0 bg-transparent p-0 contact-footer-form"
-                  defaultSubject="Contact from Gate33 Website"
-                  showSubjectField={false}
-                />
+                <p className="text-black/80 text-sm">
+                  For admin support, please contact: info@gate33.net
+                </p>
               </div>
             </div>
           </div>
@@ -383,11 +370,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div>
             <h4 className="text-white font-bold text-base mb-2">Quick Links</h4>
             <nav className="text-black/80 text-sm">
-              <a href="/jobs" className="block hover:underline">Jobs</a>
+              <span className="block text-black/40">Jobs (Coming Soon)</span>
               <span className="block text-black/40">Instant Jobs (Coming Soon)</span>
-              <a href="/learn2earn" className="block hover:underline">Learn2Earn</a>
-              <a href="/crypto-tools" className="block hover:underline">Crypto Tools</a>
-              <a href="/donate" className="block hover:underline">Donate</a>
+              <span className="block text-black/40">Learn2Earn (Coming Soon)</span>
+              <span className="block text-black/40">Crypto Tools (Coming Soon)</span>
+              <span className="block text-black/40">Donate (Coming Soon)</span>
               <span className="block text-black/40">Invest in us (Coming Soon)</span>
             </nav>
           </div>
@@ -395,32 +382,32 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div>
             <h4 className="text-white font-bold text-base mb-2">Services</h4>
             <nav className="text-black/80 text-sm">
-              <a href="/seeker-signup" className="block hover:underline">For Job Seekers</a>
-              <a href="/company-register" className="block hover:underline">For Companies</a>
+              <span className="block text-black/40">For Job Seekers (Coming Soon)</span>
+              <span className="block text-black/40">For Companies (Coming Soon)</span>
             </nav>
           </div>          {/* Resources */}
           <div>
             <h4 className="text-white font-bold text-base mb-2">Resources</h4>
             <nav className="text-black/80 text-sm">
-              <a href="/docs" className="block hover:underline">Documentation</a>
+              <span className="block text-black/40">Documentation (Coming Soon)</span>
               <a href="/#faq" className="block hover:underline">FAQ</a>
             </nav>
           </div>          {/* Contact & Socials */}
           <div>
             <h4 className="text-white font-bold text-base mb-2">Contact & Socials</h4>
             <nav className="text-black/80 text-sm">
-              <a href="/contact" className="block hover:underline">Contact Us</a>
+              <span className="block text-black/40">Contact Us (Coming Soon)</span>
               <a href="https://t.me/gate33_tg_channel" target="_blank" rel="noopener noreferrer" className="block hover:underline">Telegram</a>
               <a href="https://x.com/x_Gate33" target="_blank" rel="noopener noreferrer" className="block hover:underline">X (Twitter)</a>
               <a href="https://www.linkedin.com/company/gate33" target="_blank" rel="noopener noreferrer" className="block hover:underline">LinkedIn</a>
             </nav>
           </div>
         </div>        <div className="text-center text-black/60 text-xs mt-4 pb-2">          <div className="flex justify-center items-center gap-4 mb-2">
-            <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
+            <span className="text-black/40">Privacy Policy (Coming Soon)</span>
             <span>•</span>
-            <a href="/terms-of-service" className="hover:underline">Terms of Service</a>
+            <span className="text-black/40">Terms of Service (Coming Soon)</span>
             <span>•</span>
-            <a href="/legal-compliance" className="hover:underline">Legal Compliance</a>
+            <span className="text-black/40">Legal Compliance (Coming Soon)</span>
           </div>
           © 2025 Gate33. All Rights Reserved.
         </div>

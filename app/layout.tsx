@@ -1,8 +1,5 @@
 import "./globals.css";
 import { WalletProvider } from '../components/WalletProvider';
-import PWAUpdateManager from '../components/PWAUpdateManager';
-import CookieConsent from '../components/CookieConsent';
-import GoogleAnalytics from '../components/GoogleAnalytics';
 import { metadata } from './metadata';
 import { viewport } from './viewport';
 
@@ -19,11 +16,8 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head></head>
       <body>
-        <GoogleAnalytics />
         <WalletProvider>
           {children}
-          <PWAUpdateManager />
-          <CookieConsent />
         </WalletProvider>
       </body>
     </html>
