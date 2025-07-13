@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "../../components/global.css";
-// import { logSystemActivity } from "../../utils/logSystem"; // Temporariamente comentado
+// import { logSystemActivity } from "../../utils/logSystem"; // Temporarily commented
 import Layout from '../../components/Layout';
+import { auth } from '../../lib/firebase';
+import { signInWithCustomToken } from 'firebase/auth';
 
 const AdminLoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -26,9 +28,9 @@ const AdminLoginPage: React.FC = () => {
     }
 
     try {
-      console.log("Attempting admin login for:", username);
+      console.log("🔐 Attempting admin login for:", username);
       
-      // Use relative URL for compatibility with any environment
+      // 1. Login via API (returns Firebase token)
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { 
@@ -38,9 +40,8 @@ const AdminLoginPage: React.FC = () => {
         body: JSON.stringify({ username: username, password: password })
       });
 
-      console.log("Response status:", res.status);
+      console.log("📡 Response status:", res.status);
       
-      // Check if the response is valid before trying to parse JSON
       if (!res.ok) {
         let errorMessage = `Error ${res.status}: ${res.statusText}`;
         try {
@@ -49,61 +50,61 @@ const AdminLoginPage: React.FC = () => {
             errorMessage = errorData.error;
           }
         } catch (parseError) {
-          console.error("Error parsing error response:", parseError);
+          console.error("❌ Error parsing error response:", parseError);
         }
         
         throw new Error(errorMessage);
       }
       
-      // Safer check for JSON parsing
       const contentType = res.headers.get("content-type");
       let data;
       
       if (contentType && contentType.includes("application/json")) {
         data = await res.json();
       } else {
-        console.warn("Response is not JSON. Content-Type:", contentType);
-        data = await res.text();
+        console.warn("⚠️ Response is not JSON. Content-Type:", contentType);
+        const textData = await res.text();
         try {
-          // Try to manually parse if the body is JSON
-          data = JSON.parse(data);
+          data = JSON.parse(textData);
         } catch (e) {
-          console.error("Failed to parse response as JSON:", e);
+          console.error("❌ Failed to parse response as JSON:", e);
           throw new Error("Invalid server response format");
         }
       }
       
-      console.log("Response received:", data);
+      console.log("📦 Response received:", data);
 
-      if (data.success) {
-        console.log("Admin login successful!");
+      if (data.success && data.firebaseToken) {
+        console.log("✅ Admin login successful!");
 
-        // Save token in localStorage
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-          console.log("Admin token saved in localStorage");
-        } else {
-          console.warn("Token not found in response");
+        // 2. Authenticate with Firebase using custom token
+        try {
+          const userCredential = await signInWithCustomToken(auth, data.firebaseToken);
+          console.log("🔥 Firebase authentication successful:", userCredential.user.uid);
+          
+          // Wait for custom claims to propagate
+          await userCredential.user.getIdToken(true);
+          console.log("🏷️ Custom claims refreshed - Ready for Firestore operations");
+          
+        } catch (firebaseError: any) {
+          console.error("❌ Firebase authentication failed:", firebaseError);
+          throw new Error("Firebase authentication failed: " + firebaseError.message);
         }
 
-        // Save admin data in localStorage
+        // 3. Save admin data in localStorage (for UI display)
         if (data.admin) {
-          console.log("Admin data:", data.admin);
+          console.log("👤 Admin data:", data.admin);
           
-          // Ensure we have proper values for all fields
           localStorage.setItem("userId", data.admin.id);
           localStorage.setItem("userName", data.admin.name || data.admin.username || username);
-          
-          // Ensure the role is correctly set
-          const adminRole = data.admin.role || "viewer";
-          console.log("Setting admin role in localStorage:", adminRole);
-          localStorage.setItem("userRole", adminRole);
+          localStorage.setItem("userRole", data.admin.role || "viewer");
+          localStorage.setItem("adminUsername", data.admin.username); // Store username separately
           
           if (data.admin.photoURL) {
             localStorage.setItem("userPhoto", data.admin.photoURL);
           }
           
-          // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+          // TEMPORARILY COMMENTED: System activity logging to avoid permission errors
           /*
           await logSystemActivity(
             "login",
@@ -117,17 +118,20 @@ const AdminLoginPage: React.FC = () => {
           );
           */
         } else {
-          console.warn("Admin data not found in response");
+          console.warn("⚠️ Admin data not found in response");
         }
 
+        // 4. Set authentication cookie for compatibility
         document.cookie = "isAuthenticated=true; path=/; max-age=86400"; // 24 hours
-        console.log("Authentication cookie set, redirecting to admin dashboard");
+        
+        console.log("🚀 Authentication complete, redirecting to admin dashboard");
         router.replace("/admin/dashboard");
+        
       } else {
-        console.error("Error during login:", data.error);
+        console.error("❌ Error during login:", data.error);
         setError(data.error || "Invalid username or password");
         
-        // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+        // TEMPORARILY COMMENTED: System activity logging
         /*
         await logSystemActivity(
           "login",
@@ -142,10 +146,10 @@ const AdminLoginPage: React.FC = () => {
         */
       }
     } catch (err: any) {
-      console.error("Error during login process:", err);
+      console.error("❌ Error during login process:", err);
       setError(err.message || "An error occurred. Please try again.");
       
-      // TEMPORARIAMENTE COMENTADO: Registro de log para evitar erros de permissão
+      // TEMPORARILY COMMENTED: System activity logging
       /*
       await logSystemActivity(
         "login",

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Layout from "../../../components/FullScreenLayout";
+import { getFirebaseAuthToken } from "../../../utils/adminAuthSync";
+import { AdminAuthProvider } from "../../../components/AdminAuthProvider";
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, deleteDoc, doc, getDocs, updateDoc, getDoc, setDoc, query, where } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
@@ -151,7 +153,10 @@ type Employer = {
   address?: string;
 };
 
-const AdminDashboard: React.FC = () => {  const router = useRouter();
+const AdminDashboard: React.FC = () => {
+  const router = useRouter();
+  const auth = getAuth(); // Firebase Auth instance for the entire component
+  
   // Update the type declaration to include new tabs
   const [activeTab, setActiveTab] = useState<"dashboard" | "nfts" | "users" | "jobs" | "settings" | "payments" | "learn2earn" | "instantJobs" | "accounting" | "ads" | "newsletter" | "marketing" | "systemActivity" | "tokenDistribution">("dashboard");
   const [activeSubTab, setActiveSubTab] = useState<string | null>("add");
@@ -170,6 +175,15 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
   useEffect(() => {
     setIsClient(true);
   }, []);
+  // Helper function to get Firebase Auth token for API calls
+  const getAuthToken = async () => {
+    const firebaseToken = await getFirebaseAuthToken();
+    if (!firebaseToken) {
+      throw new Error("Authentication required. Please log in again.");
+    }
+    return firebaseToken;
+  };
+
   // Effect to set up admin ID for notifications
   useEffect(() => {
     const fetchAdminId = async () => {
@@ -189,7 +203,6 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
           }
         } else {
           console.warn("No admin ID found in localStorage");
-          const auth = getAuth();
           const user = auth.currentUser;
           
           if (user) {
@@ -281,6 +294,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     twitter: '',
     github: '',
     biography: '',
+    comments: '', // Add missing comments field
   });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -329,7 +343,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     fetchRejectedCompanies();
   }, []);
 
-  const auth = getAuth();  const handleApproveCompany = async (companyId: string) => {
+  const handleApproveCompany = async (companyId: string) => {
     setApproving(companyId);
     try {
       if (!db) {
@@ -359,7 +373,6 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
         username = email, // Use email as username if not defined
         name = companyName // Use companyName as name if not defined
       } = companyData;      // Create user in Firebase Auth
-      const auth = getAuth();
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const authUid = userCredential.user.uid;
       
@@ -576,13 +589,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     }
     setCreating(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Error: Authentication token not found. Please log in again.');
-        setCreating(false);
-        router.replace('/admin/login'); // Fix redirect path here
-        return;
-      }
+      const token = await getAuthToken();
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: {
@@ -610,13 +617,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     if (!window.confirm('Are you sure you want to delete this admin?')) return;
     setDeletingId(id);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Error: Authentication token not found. Please log in again.');
-        setDeletingId(null);
-        router.replace('/admin/login'); // Fix redirect path here
-        return;
-      }
+      const token = await getAuthToken();
       const res = await fetch('/api/admin', {
         method: 'DELETE',
         headers: {
@@ -643,13 +644,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     if (!window.confirm('Are you sure you want to delete this employer?')) return;
     setDeletingEmployerId(id);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Error: Authentication token not found. Please log in again.');
-        setDeletingEmployerId(null);
-        router.replace('/admin/login'); // Fix redirect path here
-        return;
-      }
+      const token = await getAuthToken();
       const res = await fetch('/api/admin/employers', {
         method: 'DELETE',
         headers: {
@@ -677,13 +672,7 @@ const AdminDashboard: React.FC = () => {  const router = useRouter();
     if (!window.confirm('Are you sure you want to delete this seeker?')) return;
     setDeletingSeekerId(id);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Error: Authentication token not found. Please log in again.');
-        setDeletingSeekerId(null);
-        router.replace('/admin/login'); // Fix redirect path here
-        return;
-      }
+      const token = await getAuthToken();
       const res = await fetch('/api/admin/seekers', {
         method: 'DELETE',
         headers: {
@@ -1330,12 +1319,22 @@ const fetchEmployersList = async () => {
   // Fetch current admin's data when profile tab is active
   useEffect(() => {
     const fetchCurrentAdminProfile = async () => {
+      console.log("🔍 DEBUG: fetchCurrentAdminProfile called");
+      console.log("🔍 DEBUG: activeTab =", activeTab, "activeSubTab =", activeSubTab);
+      
       if (activeTab === 'settings' && activeSubTab === 'profile') {
-        const userId = localStorage.getItem("userId");
-        if (!userId) {
-          setProfileError("Could not find your user ID. Please log in again.");
+        console.log("🔍 DEBUG: Inside settings/profile condition");
+        const currentUser = auth.currentUser;
+        console.log("🔍 DEBUG: currentUser =", currentUser?.uid, currentUser?.email);
+        
+        if (!currentUser) {
+          console.log("❌ DEBUG: No current user");
+          setProfileError("You must be logged in to view your profile. Please log in again.");
           return;
         }
+        
+        const userId = currentUser.uid; // Use Firebase Auth UID
+        console.log("🔍 DEBUG: Using userId =", userId);
         setProfileLoading(true);
         setProfileError(null);
         try {
@@ -1375,6 +1374,7 @@ const fetchEmployersList = async () => {
             twitter: data.userData?.twitter || '',
             github: data.userData?.github || '',
             biography: data.userData?.biography || '',
+            comments: data.userData?.comments || '',
           });
         } catch (err: any) {
           console.error("Error fetching profile:", err);
@@ -1398,12 +1398,15 @@ const fetchEmployersList = async () => {
     setProfileUpdating(true);
     setProfileError(null);
 
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      setProfileError("Could not find your user ID. Please log in again.");
+    // Get the current Firebase Auth user UID instead of localStorage
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setProfileError("You must be logged in to update your profile. Please log in again.");
       setProfileUpdating(false);
       return;
     }
+    
+    const userId = currentUser.uid; // Use Firebase Auth UID
 
     // Basic validation
     if (profileData.password && profileData.password !== profileData.confirmPassword) {
@@ -1429,9 +1432,22 @@ const fetchEmployersList = async () => {
       const updateData = {
         photoUrl: photoUrl,
         lastName: profileData.lastName || "",
+        position: profileData.position || "",
+        birthDate: profileData.birthDate || "",
+        nationality: profileData.nationality || "",
         address: profileData.address || "",
+        city: profileData.city || "",
         country: profileData.country || "",
+        postalCode: profileData.postalCode || "",
         phone: profileData.phone || "",
+        website: profileData.website || "",
+        linkedin: profileData.linkedin || "",
+        twitter: profileData.twitter || "",
+        github: profileData.github || "",
+        preferredLanguage: profileData.preferredLanguage || "en",
+        emergencyContactName: profileData.emergencyContactName || "",
+        emergencyContactPhone: profileData.emergencyContactPhone || "",
+        comments: profileData.comments || "",
         updatedAt: new Date().toISOString()
       };      // If password is being changed, we need to handle it through API only (not direct Firestore update)
       let passwordUpdate = null;
@@ -1447,26 +1463,41 @@ const fetchEmployersList = async () => {
         password: (updateData as { password?: string }).password ? "[REDACTED]" : undefined
       });
 
-      // APPROACH 1: Direct Firestore update (more reliable)
+      // APPROACH 1: Direct Firestore update
       try {
         if (!db) {
           throw new Error("Firestore is not initialized");
         }
 
-        // Get a reference to the user document in the "admins" collection
-        const adminRef = doc(db, "admins", userId);
+        // First try: Use Firebase Auth UID directly
+        let adminRef = doc(db, "admins", userId);
+        let docSnap = await getDoc(adminRef);
         
-        // Check if the document exists
-        const docSnap = await getDoc(adminRef);
+        // If the document doesn't exist with the auth UID, look it up by username or email
         if (!docSnap.exists()) {
-          throw new Error("Admin document not found in Firestore. Please check your user ID.");
+          console.log("Admin document not found by UID, searching by email...");
+          
+          // Query for document with matching username or email
+          const adminQuery = query(collection(db, "admins"), 
+                                  where("email", "==", currentUser.email));
+          const querySnapshot = await getDocs(adminQuery);
+          
+          if (!querySnapshot.empty) {
+            // Use the first matching document
+            const adminDoc = querySnapshot.docs[0];
+            adminRef = doc(db, "admins", adminDoc.id);
+            docSnap = adminDoc;
+            console.log("Found admin document with ID:", adminDoc.id);
+          } else {
+            throw new Error("Admin document not found in Firestore. Please check with administrator.");
+          }
         }
         
         // Update the document
         await updateDoc(adminRef, updateData);
         console.log("Profile updated successfully via direct Firestore update");        // APPROACH 2: Use API for password updates and other changes
-        const token = localStorage.getItem('token');
-        if (token) {
+        const firebaseToken = await getFirebaseAuthToken();
+        if (firebaseToken) {
           const apiPayload: any = {
             userId: userId,
             collection: "admins",
@@ -1482,7 +1513,7 @@ const fetchEmployersList = async () => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${firebaseToken}`
             },
             body: JSON.stringify(apiPayload),
           });
@@ -1512,8 +1543,8 @@ const fetchEmployersList = async () => {
         console.error("Direct Firestore update failed:", firestoreError);
         
         // Try API method as fallback
-        const token = localStorage.getItem('token');
-        if (!token) {
+        const firebaseToken = await getFirebaseAuthToken();
+        if (!firebaseToken) {
           throw new Error("Authentication token not found. Please log in again.");
         }
         
@@ -1521,7 +1552,7 @@ const fetchEmployersList = async () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${firebaseToken}`
           },
           body: JSON.stringify({
             userId: userId,
@@ -4122,4 +4153,14 @@ const fetchEmployersList = async () => {
     </Layout>
   );
 };
-export default AdminDashboard;
+
+// Wrapper component with AdminAuthProvider
+const AdminDashboardWithAuth: React.FC = () => {
+  return (
+    <AdminAuthProvider>
+      <AdminDashboard />
+    </AdminAuthProvider>
+  );
+};
+
+export default AdminDashboardWithAuth;

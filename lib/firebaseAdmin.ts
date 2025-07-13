@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 /**
  * Inicializa o Firebase Admin SDK com melhorias para v13.x
@@ -140,21 +141,37 @@ export function getAdminAuth() {
       throw new Error('Firebase Auth instance is null');
     }
     
+    console.log('✅ Firebase Admin Auth obtido com sucesso');
     return auth;
-    
   } catch (error) {
-    console.error('Erro ao obter Firebase Auth:', error);
-    
-    // Tentar reinicializar uma vez
-    try {
-      console.log('Tentando reinicializar Firebase Admin...');
+    console.error('❌ Erro ao obter Firebase Admin Auth:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtém instância do Firestore Admin
+ */
+export function getAdminFirestore() {
+  try {
+    // Certificar que o Admin está inicializado
+    if (getApps().length === 0) {
+      console.log('Admin não inicializado, inicializando...');
       initAdmin();
-      const app = getApps()[0];
-      return getAuth(app);
-    } catch (retryError) {
-      console.error('Falha na reinicialização:', retryError);
-      throw new Error(`Impossível obter Firebase Auth: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+    
+    const app = getApps()[0];
+    const firestore = getFirestore(app);
+    
+    if (!firestore) {
+      throw new Error('Firebase Firestore instance is null');
+    }
+    
+    console.log('✅ Firebase Admin Firestore obtido com sucesso');
+    return firestore;
+  } catch (error) {
+    console.error('❌ Erro ao obter Firebase Admin Firestore:', error);
+    throw error;
   }
 }
 

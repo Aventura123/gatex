@@ -23,7 +23,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return hasRole('admin') || 
+      return hasRole('admin') || hasRole('super_admin') || 
         (isAuthenticated() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
     }
     

@@ -286,9 +286,54 @@ export const AuthProvider = ({ children, initialRole = 'seeker' }: { children: R
         await syncUserRoleWithFirebase(result.user, 'company');
         
         return result.user;
+        
+      } else if (role === 'admin') {
+        console.log('Attempting admin login...');
+        
+        // Check if user exists in admins collection
+        const adminRef = doc(db, 'admins', result.user.uid);
+        const adminSnap = await getDoc(adminRef);
+        
+        if (!adminSnap.exists()) {
+          console.log('Admin document not found by UID, looking by email...');
+          // Look for admin by email - this should not happen if properly migrated
+          const adminsRef = collection(db, 'admins');
+          const emailQuery = query(adminsRef, where('email', '==', email));
+          const emailSnap = await getDocs(emailQuery);
+          
+          if (!emailSnap.empty) {
+            console.log('Found admin by email but not by UID - migration issue');
+            await signOut(auth);
+            throw new Error('Admin account found but not properly migrated. Please contact support.');
+          } else {
+            await signOut(auth); // Sign out from Firebase
+            throw new Error('Admin account not found. Please check your credentials or contact support.');
+          }
+        }
+        
+        // Admin found
+        const adminData = adminSnap.data();
+        
+        localStorage.setItem('adminToken', btoa(result.user.uid));
+        // Manter compatibilidade com o dashboard que espera estes valores
+        localStorage.setItem("token", btoa(adminData.id || result.user.uid));
+        localStorage.setItem("userId", adminData.id || result.user.uid);
+        localStorage.setItem("userName", adminData.firstName || adminData.name || result.user.email || "Admin");
+        localStorage.setItem("userRole", adminData.role || "admin");
+        localStorage.setItem("adminFirebaseUid", result.user.uid);
+        
+        // Set authentication cookie
+        document.cookie = "isAuthenticated=true; path=/; max-age=86400"; // 24 hours
+        
+        setUserRole('admin');
+        
+        // Sincronizar o papel do usuário com o Firebase Auth
+        await syncUserRoleWithFirebase(result.user, 'admin');
+        
+        return result.user;
       } else {
         await signOut(auth); // Sign out from Firebase
-        throw new Error(`Email authentication via Firebase is only available for seeker or company accounts`);
+        throw new Error(`Email authentication via Firebase is only available for seeker, company or admin accounts`);
       }
     } catch (err: any) {
       console.error('LoginWithEmail error:', err);// Translate common Firebase errors
