@@ -1347,7 +1347,7 @@ const fetchEmployersList = async () => {
           const data = await response.json();
           console.log("Admin profile data loaded:", data);
 
-          // NUNCA use localStorage para username, email ou role
+          // NEVER use localStorage for username, email or role
           setProfileData({
             name: data.userData?.name || '',
             username: data.userData?.username || data.userData?.name || '',
