@@ -1,4 +1,5 @@
-# Code Citations
+# Placeholder
+Arquivo movido para doc/.
 
 ## License: unknown
 https://github.com/ManeeshDev/nextjs-leafy-hut/tree/4dea1f65bc7e9071d995d47ff15508ab0c97ce5f/pages/_app.tsx

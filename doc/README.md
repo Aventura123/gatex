@@ -1,42 +1,5 @@
-# Gate33
-
-Gate33 is a next-generation Web3 job and micro-task platform, featuring company dashboards, instant jobs, Learn2Earn campaigns, and blockchain-based payments.
-
-## Features
-
-- Company dashboard for job posting and management
-- Instant Jobs (micro-tasks) with escrow and messaging
-- Learn2Earn campaign creation and management
-- Web3 wallet integration and smart contract payments
-- Admin panel for platform management
-- Built with Next.js, React, TypeScript, Firebase, and Tailwind CSS
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js v20+
-- npm or yarn
-- Firebase project (for Firestore and Auth)
-- (Optional) MetaMask or compatible Web3 wallet
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-org/gate33-newage.git
-   cd gate33-newage
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. Configure environment variables:
-   - Copy `.env.example` to `.env.local` and fill in your Firebase and other required keys.
+# Placeholder
+Arquivo movido para doc/.
 
 4. Set up Firebase:
    - Create Firestore collections: `companies`, `jobs`, `jobPlans`, `instantJobs`, `learn2earn`, etc.

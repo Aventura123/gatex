@@ -1,5 +1,6 @@
 
-# GateX Password Recovery System
+# Placeholder
+Arquivo movido para doc/.
 
 ## Overview
 

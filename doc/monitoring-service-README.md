@@ -1,42 +1,5 @@
-# Gate33 Monitoring Service - Ocian Migration Guide
-
-Este documento detalha o processo de migração do serviço de monitoramento Gate33 para o servidor Ocian (DigitalOcean Droplet).
-
-## Visão Geral
-
-O serviço de monitoramento é responsável por:
-- Monitorar contratos Learn2Earn e InstantJobsEscrow em várias redes blockchain
-- Verificar os saldos das carteiras de serviço
-- Registrar eventos importantes no Firestore
-- Atualizar o status para ser exibido no painel admin
-
-## Processo de Migração
-
-### Pré-requisitos
-- Acesso SSH ao servidor Ocian (DigitalOcean Droplet)
-- Node.js v16+ instalado no servidor
-- Git instalado no servidor
-- Credenciais do Firebase para o projeto Gate33
-
-### Arquivos de Migração
-
-Os seguintes arquivos foram criados para a migração:
-- `monitoring-service/index.js`: Ponto de entrada do serviço
-- `monitoring-service/contracts.js`: Código para monitoramento de contratos
-- `monitoring-service/balances.js`: Código para monitoramento de saldos
-- `monitoring-service/package.json`: Dependências do projeto
-- `monitoring-service/.env.example`: Exemplo de arquivo de configuração
-
-### Etapas da Migração
-
-1. **Preparar o Servidor Ocian**
-   ```bash
-   # Conectar via SSH
-   ssh root@159.65.92.60
-   
-   # Instalar Node.js v16
-   curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-   sudo apt-get install -y nodejs
+# Placeholder
+Arquivo movido para doc/.
    
    # Instalar PM2 para gerenciamento de processos
    npm install -g pm2
