@@ -207,13 +207,6 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </div>
       </nav>
       <main className="px-0 sm:px-0 md:px-0 lg:px-0 w-full">{children}</main>
-
-      {/* Modern Footer - Only show contact form on index page */}
-      <footer id="main-footer" className="bg-[#FF6A00] text-black border-t-4 border-orange-500 mt-0">
-        <div className="text-center text-black/60 text-xs mt-4 pb-2">
-          © 2025 Gate33. All Rights Reserved.
-        </div>
-      </footer>
     </div>
   );
 };
