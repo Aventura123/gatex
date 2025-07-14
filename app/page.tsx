@@ -1,12 +1,15 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 import FullScreenLayout from '../components/FullScreenLayout';
+import AdminLoginModal from '../components/AdminLoginModal';
+import SupportLoginModal from '../components/SupportLoginModal';
 import '../styles/globals.css';
 
 function Home() {
-  const router = useRouter();
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+
   return (
     <FullScreenLayout>
       <div className="homepage-bg flex flex-col items-center justify-center min-h-screen relative overflow-hidden px-4">
@@ -32,13 +35,13 @@ function Home() {
             <div className="flex flex-col gap-6 w-full">
               <button
                 className="w-full py-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg font-verdana shadow-md transition-all border-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-                onClick={() => router.push('/admin-login')}
+                onClick={() => setShowAdminModal(true)}
               >
                 Admin Access
               </button>
               <button
                 className="w-full py-4 rounded-xl bg-[#23262F] border border-orange-500 text-orange-500 font-bold text-lg font-verdana shadow-md transition-all hover:bg-orange-500 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                onClick={() => router.push('/support-login')}
+                onClick={() => setShowSupportModal(true)}
               >
                 Support Access
               </button>
@@ -46,6 +49,16 @@ function Home() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <AdminLoginModal 
+        isOpen={showAdminModal} 
+        onClose={() => setShowAdminModal(false)} 
+      />
+      <SupportLoginModal 
+        isOpen={showSupportModal} 
+        onClose={() => setShowSupportModal(false)} 
+      />
     </FullScreenLayout>
   );
 }

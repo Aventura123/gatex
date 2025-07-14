@@ -127,6 +127,55 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ========== COLEÇÕES ADICIONAIS - APENAS ADMIN/SUPER_ADMIN ==========
+    match /advertisements/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /alerts/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /crypto_metadata/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /cryptocurrencies/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /expenses/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /jobAlertSubscribers/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /jobMessages/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /job_drafts/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /learn2earn_drafts/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /partners/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /rolePermissions/{docId} {
+      allow write: if isAdmin();
+    }
+    
+    match /supportTickets/{docId} {
+      allow write: if isAdmin();
+    }
+
     // ========== TESTES (APENAS DESENVOLVIMENTO) ==========
     match /firestore-write-test/{docId} {
       allow write: if true;

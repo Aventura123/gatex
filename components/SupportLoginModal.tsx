@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase";
-import FullScreenLayout from "../../components/FullScreenLayout";
-import { logSystemActivity } from "../../utils/logSystem";
+import { db } from "../lib/firebase";
+import { logSystemActivity } from "../utils/logSystem";
 import bcrypt from "bcryptjs";
 
-const SupportLogin: React.FC = () => {
+interface SupportLoginModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const SupportLoginModal: React.FC<SupportLoginModalProps> = ({ isOpen, onClose }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +30,11 @@ const SupportLogin: React.FC = () => {
     if (token) {
       // If already logged in and is support or super_admin, redirect to the dashboard
       if (role === "support" || role === "super_admin") {
+        onClose();
         router.replace("/support-dashboard");
       }
     }
-  }, [router]);
+  }, [router, onClose]);
 
   // Function to reset a user's password (development only)
   const handleResetPassword = async () => {
@@ -198,6 +203,7 @@ const SupportLogin: React.FC = () => {
       console.log("Login recorded in the system logs");
 
       // Redirect to the dashboard
+      onClose();
       router.push("/support-dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
@@ -229,126 +235,136 @@ const SupportLogin: React.FC = () => {
     setError(null);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <FullScreenLayout>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-black text-white">
-        <div className="w-full max-w-md">
-          <div className="bg-black/70 rounded-lg shadow-xl p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-blue-500">Support Panel</h1>
-              <p className="text-gray-400 mt-2">
-                {resetMode ? "Reset your password" : "Log in with your support credentials"}
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-blue-500/30">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-blue-500">Support Login</h2>
+              <p className="text-sm text-gray-300 mt-1">
+                {resetMode ? "Reset your password" : "Access support dashboard"}
               </p>
             </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-            {error && (
-              <div className="bg-red-900/50 border border-red-600 text-white px-4 py-3 rounded mb-4">
-                <p>{error}</p>
+          {error && (
+            <div className="bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded relative mb-4" role="alert">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
+
+          {/* Login or Reset Form */}
+          {resetMode ? (
+            <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }} className="space-y-6">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+                  Username or Email
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white placeholder-gray-400"
+                  required
+                />
               </div>
-            )}
 
-            {/* Login or Reset Form */}
-            {resetMode ? (
-              <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }} className="space-y-6">
-                <div>
-                  <label htmlFor="username" className="block text-gray-300 mb-2">
-                    Username or Email
-                  </label>
-                  <input
-                    type="text"
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
+              <button
+                type="submit"
+                className={`w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-4 rounded-md transition-colors font-medium ${
+                  loading ? "opacity-70 cursor-not-allowed" : ""
+                }`}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Reset Password"}
+              </button>
 
-                <button
-                  type="submit"
-                  className={`w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors ${
-                    loading ? "opacity-70 cursor-not-allowed" : ""
-                  }`}
-                  disabled={loading}
+              <div className="text-center mt-4">
+                <button 
+                  type="button" 
+                  onClick={toggleResetMode}
+                  className="text-blue-400 hover:text-blue-300 text-sm font-medium"
                 >
-                  {loading ? "Processing..." : "Reset Password"}
+                  Back to Login
                 </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+                <input
+                  type="text"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white placeholder-gray-400"
+                  required
+                />
+              </div>
 
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white placeholder-gray-400"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className={`w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-800 transition-colors font-medium ${
+                  loading ? "opacity-70 cursor-not-allowed" : ""
+                }`}
+                disabled={loading}
+              >
+                {loading ? "Logging in..." : "Login to Support Panel"}
+              </button>
+
+              {/* Password recovery link - development environment only */}
+              {process.env.NODE_ENV !== 'production' && (
                 <div className="text-center mt-4">
                   <button 
                     type="button" 
                     onClick={toggleResetMode}
-                    className="text-blue-400 hover:underline text-sm"
+                    className="text-xs text-blue-400 hover:text-blue-300 font-medium"
                   >
-                    Back to Login
+                    Forgot password?
                   </button>
                 </div>
-              </form>
-            ) : (
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div>
-                  <label htmlFor="username" className="block text-gray-300 mb-2">Username</label>
-                  <input
-                    type="text"
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
+              )}
+            </form>
+          )}
 
-                <div>
-                  <label htmlFor="password" className="block text-gray-300 mb-2">Password</label>
-                  <input
-                    type="password"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className={`w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors ${
-                    loading ? "opacity-70 cursor-not-allowed" : ""
-                  }`}
-                  disabled={loading}
-                >
-                  {loading ? "Logging in..." : "Log In"}
-                </button>
-
-                {/* Password recovery link - development environment only */}
-                {process.env.NODE_ENV !== 'production' && (
-                  <div className="text-center mt-4">
-                    <button 
-                      type="button" 
-                      onClick={toggleResetMode}
-                      className="text-blue-400 hover:underline text-sm"
-                    >
-                      Forgot your password?
-                    </button>
-                  </div>
-                )}
-              </form>
-            )}
-
-            {/* Debug information - development only */}
-            {showDebugInfo && debugInfo && process.env.NODE_ENV !== 'production' && (
-              <div className="mt-6 p-4 bg-gray-900 rounded-md border border-gray-700 text-sm">
-                <h4 className="text-yellow-500 font-medium mb-2">Debug Information:</h4>
-                <pre className="text-gray-300 text-xs overflow-x-auto">
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
+          {/* Debug information - development only */}
+          {showDebugInfo && debugInfo && process.env.NODE_ENV !== 'production' && (
+            <div className="mt-6 p-4 bg-gray-900 rounded-md border border-gray-700 text-sm">
+              <h4 className="text-yellow-500 font-medium mb-2">Debug Information:</h4>
+              <pre className="text-gray-300 text-xs overflow-x-auto">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
-    </FullScreenLayout>
+    </div>
   );
 };
 
-export default SupportLogin;
+export default SupportLoginModal;
