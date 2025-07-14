@@ -1,10 +1,10 @@
 {
-  "name": "gate33",
+  "name": "gatex",
   "version": "1.0.0",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Aventura123/Gate33.git"
+    "url": "https://github.com/Aventura123/Gatex.git"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -22,7 +22,12 @@
     "git:status": "git branch && git remote -v",
     "github:deploy": "npm run git:add && git commit -m \"Update deployment\" && npm run git:push",
     "github:send-all": "git add . && git commit -m \"Envio completo do projeto\" && git push origin master",
-    "vercel:deploy": "vercel --prod"
+    "vercel:deploy": "vercel --prod",
+    
+    "functions:build": "cd functions && npm run build",
+    "functions:deploy": "cd functions && npm run deploy",
+    "functions:serve": "cd functions && npm run serve",
+    "functions:logs": "cd functions && npm run logs"
   },
   "dependencies": {
     "@google-cloud/storage": "7.16.0",
