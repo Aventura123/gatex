@@ -252,19 +252,21 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
         console.log("User Role from localStorage:", userRole);
 
         if (!adminId) {
-          console.warn("Admin ID not found in localStorage. Attempting to refresh session.");
-
-          // Attempt to refresh session or re-fetch token
-          const token = getLocalStorageItem("token");
-          if (token) {
-            console.log("Token found. Attempting to reinitialize session.");
-            // Logic to reinitialize session using the token can be added here
+          console.warn("Admin ID not found in localStorage. User may not be authenticated.");
+          
+          // Check if we have at least a userRole indicating some form of authentication
+          const userRole = getLocalStorageItem("userRole");
+          if (userRole && ['super_admin', 'admin', 'support'].includes(userRole)) {
+            console.log("Valid role found in localStorage, allowing access with default permissions");
+            const defaultPerms = defaultRolePermissions[userRole as AdminRole];
+            setRole(userRole as AdminRole);
+            setPermissions(defaultPerms);
             setError(null);
             setLoading(false);
             return;
           }
 
-          console.warn("Token also not found. Redirecting to login page:", redirectUrl);
+          console.warn("No valid authentication found. Redirecting to:", redirectUrl);
           setError("Admin ID not found");
           setLoading(false);
           if (typeof window !== 'undefined') {

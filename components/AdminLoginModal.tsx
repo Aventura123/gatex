@@ -127,6 +127,9 @@ const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClose }) =>
         // 4. Set authentication cookie for compatibility
         document.cookie = "isAuthenticated=true; path=/; max-age=86400"; // 24 hours
         
+        // Dispatch custom event to notify UserProfileButton
+        window.dispatchEvent(new Event('userLoggedIn'));
+        
         console.log("🚀 Authentication complete, redirecting to admin dashboard");
         router.replace("/admin/dashboard");
         

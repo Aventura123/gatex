@@ -54,7 +54,7 @@ interface SupportMessage {
 const SupportDashboard: React.FC = () => {
   const router = useRouter();
   const { role, loading: permissionsLoading, error: permissionsError } = useAdminPermissions({
-    redirectUrl: "/support-login" // Specify that we want to redirect to the support login
+    redirectUrl: "/" // Redirect to homepage instead of support login
   });
   
   const [activeTab, setActiveTab] = useState<"jobs" | "instantJobs" | "chat">("jobs");
@@ -122,11 +122,21 @@ const SupportDashboard: React.FC = () => {
 
   // Authentication and permissions verification
   useEffect(() => {
-    // Check if the user is logged in
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.log("Token not found, redirecting to support login");
-      router.replace("/support-login");
+    // Check if the user is logged in and has appropriate role
+    const userRole = localStorage.getItem("userRole");
+    const userId = localStorage.getItem("userId");
+    
+    // Allow access for support, admin, and super_admin roles
+    if (!userRole || !userId || !['support', 'admin', 'super_admin'].includes(userRole)) {
+      console.log("User not authenticated or insufficient permissions for support access, redirecting to homepage");
+      
+      // Clear any existing polling interval before redirecting
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+      
+      router.replace("/");
       return;
     }
     
@@ -134,14 +144,14 @@ const SupportDashboard: React.FC = () => {
     if (!permissionsLoading) {
       if (permissionsError) {
         console.error("Error loading permissions:", permissionsError);
-        router.replace("/support-login");
-        return;
-      }
-      
-      // Check if user has support or super_admin role
-      if (role !== 'support' && role !== 'super_admin') {
-        console.log("User doesn't have support permissions:", role);
-        router.replace("/support-login"); // Changed from "/admin/access-denied" to "/support-login"
+        
+        // Clear any existing polling interval before redirecting
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+        
+        router.replace("/");
         return;
       }
       
@@ -169,7 +179,7 @@ const SupportDashboard: React.FC = () => {
       
       logAccess();
     }
-  }, [permissionsLoading, permissionsError, role, router]);
+  }, [permissionsLoading, permissionsError, role, router, pollingInterval]);
 
   // Function to fetch jobs
   const fetchJobs = async () => {
@@ -394,13 +404,30 @@ const SupportDashboard: React.FC = () => {
     } catch (error) {
       console.error("Error logging logout:", error);
     } finally {
-      // Clear session data and redirect
-      localStorage.removeItem("token");
+      // Sign out from Firebase Auth
+      try {
+        const { auth } = await import("../../lib/firebase");
+        const { signOut } = await import("firebase/auth");
+        await signOut(auth);
+        console.log("Firebase Auth logout successful");
+      } catch (firebaseError) {
+        console.error("Firebase Auth logout error:", firebaseError);
+      }
+      
+      // Clear session data
       localStorage.removeItem("userId");
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userName");
       localStorage.removeItem("userRole");
-      router.push("/support-login");
+      localStorage.removeItem("adminUsername");
+      localStorage.removeItem("accessLevel");
+      localStorage.removeItem("userPhoto");
+      
+      // Clear authentication cookies
+      document.cookie = "isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "supportSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      router.push("/");
     }
   };
 
@@ -1237,7 +1264,7 @@ const SupportDashboard: React.FC = () => {
 
   // Implement mechanism to start/stop polling when necessary
   useEffect(() => {
-    // Start polling only when on active tickets tab
+    // Start polling only when on active tickets tab AND user is authenticated
     if (activeTab === 'chat' && activeSubTab === 'tickets' && ticketsSubSection === 'active') {
       // Clear any existing interval
       if (pollingInterval) {
@@ -1246,6 +1273,17 @@ const SupportDashboard: React.FC = () => {
       
       // Start new polling interval every 1 minute exactly (60 seconds)
       const interval = setInterval(() => {
+        // Check authentication before each polling attempt
+        const userRole = localStorage.getItem("userRole");
+        const userId = localStorage.getItem("userId");
+        
+        if (!userRole || !userId || !['support', 'admin', 'super_admin'].includes(userRole)) {
+          console.log("User no longer authenticated, stopping polling");
+          clearInterval(interval);
+          setPollingInterval(null);
+          return;
+        }
+        
         console.log("Automatically checking for new messages (every 1 minute)");
         setLastCheckTime(new Date());
         
@@ -1270,6 +1308,17 @@ const SupportDashboard: React.FC = () => {
       setPollingInterval(null);
     }
   }, [activeTab, activeSubTab, ticketsSubSection, ticketsTypeTab]);
+
+  // Cleanup polling interval when component unmounts
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        console.log("Component unmounting, clearing polling interval");
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+    };
+  }, [pollingInterval]);
 
   // Update search when switching ticket type tab
   useEffect(() => {
@@ -1811,7 +1860,7 @@ const SupportDashboard: React.FC = () => {
                                     <div className="flex items-center">
                                       <span className="animate-pulse inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 01-6 0v-1m6 0H9" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                       </svg>
                                     </div>
                                   )}
@@ -1847,7 +1896,7 @@ const SupportDashboard: React.FC = () => {
                                   setSelectedTicket(ticket);
                                   fetchTicketMessages(ticket.id);
                                 }}
-                              >
+                                                           >
                                 <div className="flex justify-between items-start">
                                   <div className="font-semibold text-green-400 truncate">{ticket.subject}</div>
                                   <div className="text-xs text-gray-400 bg-gray-800/70 px-2 py-1 rounded">

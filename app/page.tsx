@@ -10,6 +10,38 @@ function Home() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
 
+  const handleSupportAccess = () => {
+    // Check if user is already logged in as support/admin
+    const role = localStorage.getItem("userRole");
+    const userId = localStorage.getItem("userId");
+    
+    if (role && userId && ["support", "admin", "super_admin"].includes(role)) {
+      // Already logged in, redirect to dashboard
+      console.log("User already logged in as", role, "- redirecting to dashboard");
+      window.location.href = "/support-dashboard";
+    } else {
+      // Not logged in, open modal
+      console.log("User not logged in - opening support modal");
+      setShowSupportModal(true);
+    }
+  };
+
+  const handleAdminAccess = () => {
+    // Check if user is already logged in as admin
+    const role = localStorage.getItem("userRole");
+    const userId = localStorage.getItem("userId");
+    
+    if (role && userId && ["admin", "super_admin"].includes(role)) {
+      // Already logged in, redirect to dashboard
+      console.log("User already logged in as", role, "- redirecting to admin dashboard");
+      window.location.href = "/admin/dashboard";
+    } else {
+      // Not logged in, open modal
+      console.log("User not logged in - opening admin modal");
+      setShowAdminModal(true);
+    }
+  };
+
   return (
     <FullScreenLayout>
       <div className="homepage-bg flex flex-col items-center justify-center min-h-screen relative overflow-hidden px-4">
@@ -35,13 +67,13 @@ function Home() {
             <div className="flex flex-col gap-6 w-full">
               <button
                 className="w-full py-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg font-verdana shadow-md transition-all border-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-                onClick={() => setShowAdminModal(true)}
+                onClick={handleAdminAccess}
               >
                 Admin Access
               </button>
               <button
                 className="w-full py-4 rounded-xl bg-[#23262F] border border-orange-500 text-orange-500 font-bold text-lg font-verdana shadow-md transition-all hover:bg-orange-500 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                onClick={() => setShowSupportModal(true)}
+                onClick={handleSupportAccess}
               >
                 Support Access
               </button>

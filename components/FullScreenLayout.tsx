@@ -58,15 +58,11 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Add debugging to see what's in localStorage
-      console.log("Login check - seekerToken:", localStorage.getItem("seekerToken"));
-      console.log("Login check - token:", localStorage.getItem("token"));
-      console.log("Login check - companyId:", localStorage.getItem("companyId"));
-      console.log("Login check - companyName:", localStorage.getItem("companyName"));
+      console.log("Login check - userId:", localStorage.getItem("userId"));
+      console.log("Login check - userRole:", localStorage.getItem("userRole"));
       
       const hasToken = Boolean(
-        localStorage.getItem("seekerToken") || 
-        localStorage.getItem("token") || 
-        localStorage.getItem("companyId")
+        localStorage.getItem("userId") // Check for admin/support
       );
       console.log("Login check - isLoggedIn:", hasToken);
       setIsLoggedIn(hasToken);
@@ -77,16 +73,18 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   useEffect(() => {
     const handleStorageChange = () => {
       const hasToken = Boolean(
-        localStorage.getItem("seekerToken") || 
-        localStorage.getItem("token") || 
-        localStorage.getItem("companyId")
+        localStorage.getItem("userId") // Check for admin/support
       );
       setIsLoggedIn(hasToken);
     };
 
     window.addEventListener('storage', handleStorageChange);
+    // Also listen for our custom login event
+    window.addEventListener('userLoggedIn', handleStorageChange);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLoggedIn', handleStorageChange);
     };
   }, []);
 
@@ -159,15 +157,8 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </button>
           {/* Desktop Navigation - Only Login/Profile Button */}
           <nav className="hidden md:flex gap-8 items-center relative z-[1000]">
-            {isLoggedIn ? (
+            {isLoggedIn && (
               <UserProfileButton className="ml-4 mr-4 header-button min-w-0" />
-            ) : (
-              <a 
-                href="/login" 
-                className="px-6 py-2 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors font-medium header-button login-button"
-              >
-                Log In / Sign Up
-              </a>
             )}
           </nav>
         </div>
@@ -189,19 +180,9 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <a href="/" className={`block py-2 text-lg font-medium hover:text-orange-500 transition-colors mb-4 border-b border-gray-800 pb-4`} onClick={() => setMenuOpen(false)}>HOME</a>
           <div className="border-t border-gray-800 my-2"></div>
           {/* Login/Profile Section */}
-          {isLoggedIn ? (
+          {isLoggedIn && (
             <div className="pt-2">
               <UserProfileButton />
-            </div>
-          ) : (
-            <div className="pt-2">
-              <a 
-                href="/login" 
-                className="block w-full px-6 py-2.5 bg-orange-500 text-white rounded-full text-center hover:bg-orange-600 transition-colors font-medium" 
-                onClick={() => setMenuOpen(false)}
-              >
-                Log In / Sign Up
-              </a>
             </div>
           )}
         </div>

@@ -7,8 +7,8 @@ import { db } from "../lib/firebase";
 
 // Interface for authentication options
 interface AuthOptions {
-  // User type: 'admin', 'company', 'seeker', 'support'
-  userType?: 'admin' | 'company' | 'seeker' | 'support';
+  // User type: 'admin' or 'support'
+  userType?: 'admin' | 'support';
   // Login page URL for redirection, if not specified, it will be determined by userType
   loginPath?: string;
 }
@@ -21,21 +21,17 @@ export default function withAuth<P extends object>(
     const router = useRouter();
     
     // Determine which user type and login path to use
-    // Changed the default to 'seeker' instead of 'admin' when not specified
-    const userType = options.userType || 'seeker';
+    // Default to 'admin' when not specified
+    const userType = options.userType || 'admin';
     
     // Map user types to login paths and token names
     const typeToLoginPath = {
       'admin': '/admin-login',
-      'company': '/login',
-      'seeker': '/login',
       'support': '/support-login'
     };
     
     const typeToTokenName = {
       'admin': 'token',            // JWT token for admin
-      'company': 'companyToken',   // specific token for company
-      'seeker': 'seekerToken',     // specific token for seeker
       'support': 'supportToken'    // specific token for support
     };
     
@@ -85,35 +81,11 @@ export default function withAuth<P extends object>(
               return;
             }
           } 
-          // For other user types, we can implement specific verifications
-          // For example, for seekers and companies, we can check if the decoded ID exists in Firestore
-          else if (userType === 'seeker') {
-            // For seekers, the token is usually just the ID encoded in base64
-            try {
-              const seekerId = atob(token); // Decode base64 token
-              
-              if (!db) {
-                throw new Error("Firestore instance is not initialized.");
-              }
-              
-              const seekerRef = doc(db, "seekers", seekerId);
-              const seekerDoc = await getDoc(seekerRef);
-              
-              if (!seekerDoc.exists()) {
-                console.error("Seeker not found in database. Redirecting to login.");
-                router.replace(loginPath);
-                return;
-              }
-            } catch (error) {
-              console.error("Invalid seeker token:", error);
-              router.replace(loginPath);
-              return;
-            }
-          }
-          // Similar verification for companies and support
-          else if (userType === 'company' || userType === 'support') {
-            // Implement specific checks as needed
-            // This is a simplified check that only verifies if the token exists
+          // For support users, implement specific verification if needed
+          else if (userType === 'support') {
+            // Currently using simple token verification
+            // Could be enhanced with Firestore verification if needed
+            console.log("Support token verification - basic check passed");
           }
 
           console.log(`${userType} token is valid.`);

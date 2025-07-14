@@ -36,10 +36,10 @@ function checkCookieConsent(request: NextRequest): boolean {
 }
 
 // Routes that require admin authentication
-const adminRoutes = ['/admin', '/api/admin', '/support', '/api/monitoring'];
+const adminRoutes = ['/admin', '/api/admin', '/support-dashboard', '/api/support', '/api/monitoring'];
 
-// Rotas públicas que não devem exigir autenticação mesmo estando dentro de /api/admin
-const publicApiRoutes = ['/api/admin/login'];
+// Rotas públicas que não devem exigir autenticação mesmo estando dentro de /api/admin ou /api/support
+const publicApiRoutes = ['/api/admin/login', '/api/support/login'];
 
 // Mapeamento de rotas para requisitos de permissão específicos
 // Adicione rotas e permissões específicas para admin/support se necessário
@@ -66,35 +66,13 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = request.cookies.get('isAuthenticated')?.value === 'true';
   if (!isAuthenticated) {
     console.log('Unauthenticated user trying to access protected route:', pathname);
-    // Redireciona para login admin/support
-    return NextResponse.redirect(new URL('/admin-login', request.url));
+    // Redireciona para homepage 
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  try {
-    // Verifica o JWT e o tipo de usuário
-    const token = request.cookies.get('token')?.value;
-    if (token) {
-      const { isValid, payload } = verifyToken(token);
-      if (isValid && payload) {
-        // Permite apenas admin, super_admin ou support
-        if (!('role' in payload) || !['super_admin', 'admin', 'support'].includes(payload.role as string)) {
-          console.log('User with invalid role trying to access admin/support route:', pathname);
-          return NextResponse.redirect(new URL('/admin-login', request.url));
-        }
-        // Permissões específicas podem ser verificadas aqui se necessário
-      } else {
-        // Token inválido, redireciona para login
-        console.log('Invalid token when accessing protected route:', pathname);
-        return NextResponse.redirect(new URL('/admin-login', request.url));
-      }
-    }
-  } catch (error) {
-    console.error("Error in middleware:", error);
-    // In case of error, we still allow access to avoid breaking the page
-    return NextResponse.next();
-  }
-
-  // If everything is ok, allow access
+  // For Firebase Auth based authentication, we skip JWT verification
+  // and trust the isAuthenticated cookie set during login
+  console.log('Authenticated user accessing protected route:', pathname);
   return NextResponse.next();
 }
 
@@ -102,8 +80,9 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/support/:path*',
+    '/support-dashboard/:path*',
     '/api/admin/:path*',
+    '/api/support/:path*',
     '/api/monitoring/:path*',
   ],
 };

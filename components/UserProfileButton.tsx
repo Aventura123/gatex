@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAdminAuth } from '../hooks/useAdminAuth';
 
 interface UserProfileButtonProps {
   className?: string;
@@ -15,10 +16,13 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
     name: string;
     photo: string;
     role: string;
-    type: 'seeker' | 'company' | 'admin' | 'support';
+    type: 'admin' | 'support';
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Usar o hook do Firebase Auth para admin/support
+  const adminAuth = useAdminAuth();
   
   // Detect if it's a mobile version to adjust the dropdown behavior
   useEffect(() => {
@@ -37,32 +41,13 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
   
   const router = useRouter();
 
-  // Function to fetch user data from Firebase
-  const fetchUserDataFromFirebase = async (type: string, id: string) => {
+  // Function to fetch admin/support data from Firebase
+  const fetchUserDataFromFirebase = async (type: 'admin' | 'support', id: string) => {
     try {
       if (!db) return null;
       
-      let collection = '';
-      
-      switch(type) {
-        case 'company':
-          collection = 'companies';
-          break;
-        case 'seeker':
-          collection = 'seekers';
-          break;
-        case 'admin':
-          collection = 'admins';
-          console.log(`Attempting to fetch admin data from 'admins' collection with ID: ${id}`);
-          break;
-        case 'support':
-          collection = 'support';
-          console.log(`Attempting to fetch support data from 'support' collection with ID: ${id}`);
-          break;
-        default:
-          console.warn(`Unknown user type: ${type}`);
-          return null;
-      }
+      const collection = type === 'admin' ? 'admins' : 'support';
+      console.log(`Attempting to fetch ${type} data from '${collection}' collection with ID: ${id}`);
       
       const docRef = doc(db, collection, id);
       const docSnap = await getDoc(docRef);
@@ -80,38 +65,75 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
     }
   };
 
-  // Function to check the logged-in user type based on localStorage values
+  // Function to check the logged-in user type
   useEffect(() => {
     const checkLoggedInUser = async () => {
       setIsLoading(true);
       
-      // Check and debug all localStorage values
-      console.log("UserProfileButton checking localStorage:");
-      console.log("- seekerId:", localStorage.getItem("seekerId"));
-      console.log("- seekerName:", localStorage.getItem("seekerName"));
-      console.log("- seekerPhoto:", localStorage.getItem("seekerPhoto"));
-      console.log("- userId:", localStorage.getItem("userId"));
-      console.log("- userName:", localStorage.getItem("userName"));
-      console.log("- userRole:", localStorage.getItem("userRole"));
-      console.log("- companyId:", localStorage.getItem("companyId"));
-      console.log("- companyName:", localStorage.getItem("companyName"));
-      console.log("- token:", localStorage.getItem("token"));
+      // Debug localStorage
+      console.log("🔍 UserProfileButton localStorage check:", {
+        userId: localStorage.getItem("userId"),
+        userRole: localStorage.getItem("userRole"),
+        userName: localStorage.getItem("userName"),
+        userPhoto: localStorage.getItem("userPhoto"),
+        isAuthenticated: document.cookie.includes("isAuthenticated=true")
+      });
       
       try {
-        // First priority: Check if we have admin/superadmin credentials
+        // First priority: Check localStorage for any logged in user
+        const userId = localStorage.getItem("userId");
+        const userRole = localStorage.getItem("userRole");
+        const userName = localStorage.getItem("userName");
+        
+        if (userId && userRole) {
+          console.log("✅ Found user in localStorage:", { userId, userRole, userName });
+          
+          // Handle admin/support users
+          if (userRole === "super_admin" || userRole === "admin" || userRole === "support") {
+            const formattedRole = userRole === "super_admin" ? "Super Admin" : 
+                             userRole === "support" ? "Support" : "Admin";
+
+            const userInfo = {
+              name: userName || "Admin",
+              photo: localStorage.getItem("userPhoto") || "/images/default-avatar.png",
+              role: formattedRole,
+              type: (userRole === "support" ? 'support' : 'admin') as 'admin' | 'support'
+            };
+            
+            console.log("✅ Setting userInfo:", userInfo);
+            setUserInfo(userInfo);
+            setIsLoading(false);
+            return userInfo;
+          }
+        } else {
+          console.log("❌ No userId or userRole found in localStorage");
+        }
+        
+        // Check Firebase Auth for admin/support (secondary check)
+        if (adminAuth.isReady && adminAuth.user && !userId) {
+          setUserInfo({
+            name: adminAuth.username || adminAuth.user.displayName || "Admin",
+            photo: adminAuth.user.photoURL || "/images/default-avatar.png",
+            role: adminAuth.role === 'admin' ? 'Admin' : 'Support',
+            type: adminAuth.role as 'admin' | 'support'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Check localStorage for admin/support users (detailed check)
         if (localStorage.getItem("userId") && localStorage.getItem("userRole")) {
           const userId = localStorage.getItem("userId");
           const userRole = localStorage.getItem("userRole") || "";
           const userName = localStorage.getItem("userName");
           
-          console.log("Found user credentials:", { userId, userRole, userName });
+          console.log("🔍 Found user credentials:", { userId, userRole, userName });
           
-          // Handle admin users with highest priority
+          // Handle admin users
           if (userRole === "super_admin" || userRole === "admin") {
-            console.log("Processing as admin account");
+            console.log("👑 Processing as admin account");
             const adminData = await fetchUserDataFromFirebase('admin', userId || "");
-            const formattedRole = userRole === "super_admin" ? "Super Admin" : 
-                             userRole.charAt(0).toUpperCase() + userRole.slice(1);
+            const formattedRole = userRole === "super_admin" ? "Super Admin" : "Admin";
 
             // For admins, we need to be careful about the name
             // Check if userName is "suporte" and avoid using it for admin accounts
@@ -132,7 +154,7 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
               console.log("Using fallback admin name");
             }
             
-            console.log("Final admin name:", adminName);
+            console.log("🎯 Final admin name:", adminName);
                              
             return {
               name: adminName,
@@ -142,7 +164,7 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
             };
           }
           
-          // Handle support users only if clearly identified as support
+          // Handle support users
           else if (userRole === "support" && userId) {
             console.log("Processing as support account");
             const supportData = await fetchUserDataFromFirebase('support', userId);
@@ -151,53 +173,6 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
               photo: supportData?.photoURL || localStorage.getItem("userPhoto") || "/images/default-avatar.png",
               role: "Support",
               type: 'support' as const
-            };
-          }
-        }
-        
-        // Check seeker
-        if (localStorage.getItem("seekerToken")) {
-          const seekerId = localStorage.getItem("seekerToken") 
-            ? atob(localStorage.getItem("seekerToken") || "")
-            : null;
-            
-          if (seekerId) {
-            const seekerData = await fetchUserDataFromFirebase('seeker', seekerId);
-            
-            if (seekerData) {
-              return {
-                name: seekerData.name || "User",
-                photo: seekerData.photoURL || "/images/default-avatar.png",
-                role: "Job Seeker",
-                type: 'seeker' as const
-              };
-            }
-          }
-        }
-        
-        // Check company
-        const companyId = localStorage.getItem("companyId") || 
-          (localStorage.getItem("token") ? atob(localStorage.getItem("token") || "") : null);
-          
-        if (companyId) {
-          console.log("Fetching company data from Firebase, ID:", companyId);
-          const companyData = await fetchUserDataFromFirebase('company', companyId);
-          
-          if (companyData) {
-            console.log("Company data obtained from Firebase:", companyData);
-            return {
-              name: companyData.name || "Company",
-              photo: companyData.photoURL || companyData.photo || "/images/default-avatar.png",
-              role: "Company",
-              type: 'company' as const
-            };
-          } else {
-            // Fallback to localStorage data if Firebase fails
-            return {
-              name: localStorage.getItem("companyName") || "Company",
-              photo: localStorage.getItem("companyPhoto") || "/images/default-avatar.png",
-              role: "Company",
-              type: 'company' as const
             };
           }
         }
@@ -214,10 +189,69 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
     // Only run on client
     if (typeof window !== 'undefined') {
       checkLoggedInUser().then(user => {
-        setUserInfo(user);
+        if (user) {
+          setUserInfo(user);
+        }
         setIsLoading(false);
       });
     }
+  }, [adminAuth]); // Dependência do adminAuth para re-executar quando muda
+
+  // Listen for storage changes to detect login/logout
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Re-check user info when localStorage changes
+      if (typeof window !== 'undefined') {
+        const checkLoggedInUser = async () => {
+          setIsLoading(true);
+          
+          try {
+            // First priority: Check localStorage for any logged in user
+            const userId = localStorage.getItem("userId");
+            const userRole = localStorage.getItem("userRole");
+            const userName = localStorage.getItem("userName");
+            
+            if (userId && userRole) {
+              // Handle admin/support users
+              if (userRole === "super_admin" || userRole === "admin" || userRole === "support") {
+                const formattedRole = userRole === "super_admin" ? "Super Admin" : 
+                                 userRole === "support" ? "Support" :
+                                 userRole.charAt(0).toUpperCase() + userRole.slice(1);
+
+                setUserInfo({
+                  name: userName || "Admin",
+                  photo: localStorage.getItem("userPhoto") || "/images/default-avatar.png",
+                  role: formattedRole,
+                  type: userRole === "support" ? 'support' : 'admin'
+                });
+                setIsLoading(false);
+                return;
+              }
+            } else {
+              // No user logged in
+              setUserInfo(null);
+            }
+          } catch (error) {
+            console.error("Error checking logged in user:", error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        checkLoggedInUser();
+      }
+    };
+
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for a custom event we'll dispatch after login
+    window.addEventListener('userLoggedIn', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLoggedIn', handleStorageChange);
+    };
   }, []);
 
   // Add event listener to handle clicks outside the dropdown
@@ -260,43 +294,42 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
     };
   }, []);
 
-  const handleLogout = () => {
-    // Clear all possible authentication tokens
-    localStorage.removeItem("seekerId");
-    localStorage.removeItem("seekerName");
-    localStorage.removeItem("seekerPhoto");
-    localStorage.removeItem("seekerToken");
-    
-    localStorage.removeItem("userId");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userPhoto");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("token");
-    
-    localStorage.removeItem("companyId");
-    localStorage.removeItem("companyName");
-    localStorage.removeItem("companyPhoto");
-    
-    document.cookie = "isAuthenticated=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    
-    // Redirect to home page
-    router.push("/");
-    
-    // Reload the page to ensure the component state is updated
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+  const handleLogout = async () => {
+    try {
+      // Clear admin/support authentication tokens
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userName");
+      localStorage.removeItem("userPhoto");
+      localStorage.removeItem("userRole");
+      
+      // Clear authentication cookie
+      document.cookie = "isAuthenticated=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      
+      // Se é admin/support via Firebase Auth, fazer logout do Firebase
+      if (adminAuth.user) {
+        try {
+          const { auth } = await import("../lib/firebase");
+          const { signOut } = await import("firebase/auth");
+          await signOut(auth);
+          console.log("Firebase Auth logout successful");
+        } catch (firebaseError) {
+          console.error("Error during Firebase logout:", firebaseError);
+        }
+      }
+      
+      // Force redirect to home without any delays that could cause loops
+      window.location.href = "/";
+      
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Em caso de erro, forçar redirecionamento para home
+      window.location.href = "/";
+    }
   };
 
   const handleGoToDashboard = () => {
     if (!userInfo) return;
     switch (userInfo.type) {
-      case 'seeker':
-        router.push("/seeker-dashboard");
-        break;
-      case 'company':
-        router.push("/company-dashboard");
-        break;
       case 'admin':
         router.push("/admin/dashboard");
         break;
@@ -304,7 +337,7 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
         router.push("/support-dashboard");
         break;
       default:
-        // Fallback: go to a generic dashboard or home
+        // Fallback: go to home
         router.push("/");
         break;
     }
@@ -362,13 +395,6 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({ className = "" })
             <p className="text-orange-400 font-semibold">{userInfo.name}</p>
             <p className="text-gray-400 text-xs">{userInfo.role}</p>
           </div>
-          
-          <button 
-            onClick={handleGoToDashboard}
-            className="px-4 py-2 text-gray-200 hover:bg-orange-500 hover:text-white w-full text-left"
-          >
-            Dashboard
-          </button>
           
           <button 
             onClick={handleLogout}
