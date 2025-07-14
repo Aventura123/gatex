@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "../../components/global.css";
 // import { logSystemActivity } from "../../utils/logSystem"; // Temporarily commented
-import Layout from '../../components/Layout';
+import FullScreenLayout from '../../components/FullScreenLayout';
 import { auth } from '../../lib/firebase';
 import { signInWithCustomToken } from 'firebase/auth';
 
@@ -168,7 +168,7 @@ const AdminLoginPage: React.FC = () => {
   };
 
   return (
-    <Layout>
+    <FullScreenLayout>
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-black to-orange-900 py-12 px-4 sm:px-6 lg:px-8">
         <div className="absolute top-4 left-4">
           <Link href="/" className="flex items-center text-white hover:text-orange-300 transition-colors">
@@ -245,7 +245,7 @@ const AdminLoginPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </FullScreenLayout>
   );
 };
 

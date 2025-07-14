@@ -1,5 +1,5 @@
 import '../components/global.css';
-import Layout from '../components/Layout';
+import FullScreenLayout from '../components/FullScreenLayout';
 import React from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -125,9 +125,9 @@ export default function App({ Component, pageProps }: { Component: React.Compone
         )}
       </Head>
       <QueryClientProvider client={queryClient}>
-        <Layout>
+        <FullScreenLayout>
           <Component {...pageProps} />
-        </Layout>
+        </FullScreenLayout>
       </QueryClientProvider>
     </>
   );

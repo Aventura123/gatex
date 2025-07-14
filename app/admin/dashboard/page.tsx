@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import Layout from "../../../components/FullScreenLayout";
+import FullScreenLayout from "../../../components/FullScreenLayout";
 import { getFirebaseAuthToken } from "../../../utils/adminAuthSync";
 import { AdminAuthProvider } from "../../../components/AdminAuthProvider";
 import { useRouter } from 'next/navigation';
@@ -1796,7 +1796,7 @@ const fetchEmployersList = async () => {
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
   const [marketingDropdownOpen, setMarketingDropdownOpen] = useState(false); // NOVO
   return (
-    <Layout>
+    <FullScreenLayout>
       {/* Prevent hydration mismatch by not rendering mobile-dependent content until isMobile is determined */}
       {isMobile === null ? (
         <main className="min-h-screen flex bg-gradient-to-br from-orange-900 to-black text-white">
@@ -4150,7 +4150,7 @@ const fetchEmployersList = async () => {
           )}
       </main>
       )}
-    </Layout>
+    </FullScreenLayout>
   );
 };
 

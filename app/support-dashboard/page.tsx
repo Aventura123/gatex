@@ -1,6 +1,6 @@
 "use client";
 
-import Layout from "../../components/Layout";
+import FullScreenLayout from "../../components/FullScreenLayout";
 import { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, addDoc, deleteDoc, doc, query, where, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -1280,7 +1280,7 @@ const SupportDashboard: React.FC = () => {
   }, [activeTab, activeSubTab, ticketsTypeTab]);
 
   return (
-    <Layout>
+    <FullScreenLayout>
       {permissionsLoading ? (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-black text-white">
           <div className="text-center">
@@ -1997,7 +1997,7 @@ const SupportDashboard: React.FC = () => {
           </div>
         </main>
       )}
-    </Layout>
+    </FullScreenLayout>
   );
 };
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import Layout from "../../components/Layout";
+import FullScreenLayout from "../../components/FullScreenLayout";
 import { logSystemActivity } from "../../utils/logSystem";
 import bcrypt from "bcryptjs";
 
@@ -230,7 +230,7 @@ const SupportLogin: React.FC = () => {
   };
 
   return (
-    <Layout>
+    <FullScreenLayout>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-black text-white">
         <div className="w-full max-w-md">
           <div className="bg-black/70 rounded-lg shadow-xl p-8">
@@ -347,7 +347,7 @@ const SupportLogin: React.FC = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </FullScreenLayout>
   );
 };
 
