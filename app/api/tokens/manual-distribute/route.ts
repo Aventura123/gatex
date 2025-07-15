@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { doc, addDoc, collection, updateDoc } from 'firebase/firestore';
-import { db } from '../../../../lib/firebase';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initAdmin } from '../../../../lib/firebaseAdmin';
 import { g33TokenDistributorService } from '../../../../services/g33TokenDistributorService';
 
 /**
@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
       recipientAddress, 
       usdValue, 
       reason, 
-      adminId, 
-      waitForConfirmation = true 
+      adminId
     } = requestData;
 
     // Validation
@@ -84,7 +83,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create manual distribution record in Firebase
+    // Initialize Firebase Admin
+    await initAdmin();
+    const db = getFirestore();
+
+    // Create manual distribution record in Firebase using Admin SDK
     const manualDistributionData = {
       recipientAddress,
       usdValue: finalUsdValue,
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date()
     };
 
-    const docRef = await addDoc(collection(db, 'manualTokenDistributions'), manualDistributionData);
+    const docRef = await db.collection('manualTokenDistributions').add(manualDistributionData);
     const distributionId = docRef.id;
 
     console.log(`📝 [MANUAL API] Manual distribution record created: ${distributionId}`);
@@ -107,13 +110,12 @@ export async function POST(request: NextRequest) {
       console.log(`🚀 [MANUAL API] Calling token distribution service...`);
       const distributionResult = await g33TokenDistributorService.distributeTokens(
         recipientAddress,
-        finalUsdValue,
-        waitForConfirmation
+        finalUsdValue
       );
 
       if (!distributionResult) {
-        // Update record as failed
-        await updateDoc(doc(db, 'manualTokenDistributions', distributionId), {
+        // Update record as failed using Admin SDK
+        await db.collection('manualTokenDistributions').doc(distributionId).update({
           status: 'failed',
           error: 'Token distribution failed - no transaction hash returned',
           updatedAt: new Date()
@@ -128,40 +130,12 @@ export async function POST(request: NextRequest) {
 
       console.log("✅ [MANUAL API] Tokens distributed successfully");
 
-      // Update record as successful
-      await updateDoc(doc(db, 'manualTokenDistributions', distributionId), {
+      // Update record as successful using Admin SDK
+      await db.collection('manualTokenDistributions').doc(distributionId).update({
         status: 'distributed',
         distributionTxHash: distributionResult,
         updatedAt: new Date()
       });
-
-      // Check transaction status if waitForConfirmation is true
-      if (waitForConfirmation) {
-        console.log("[MANUAL API] Checking transaction status on blockchain...");
-        try {
-          const receipt = await g33TokenDistributorService.getTransactionReceipt(distributionResult);
-          
-          if (receipt && receipt.status === 0) {
-            console.error("❌ [MANUAL API] Transaction failed on blockchain (status=0)");
-            
-            await updateDoc(doc(db, 'manualTokenDistributions', distributionId), {
-              status: 'failed',
-              error: 'Transaction was included but execution failed',
-              updatedAt: new Date()
-            });
-
-            return NextResponse.json({
-              success: false,
-              transactionHash: distributionResult,
-              error: 'Contract execution failed',
-              message: `Transaction ${distributionResult} failed. Check at https://polygonscan.com/tx/${distributionResult}`,
-              distributionId
-            }, { status: 400 });
-          }
-        } catch (receiptError) {
-          console.warn("⚠️ [MANUAL API] Could not verify transaction receipt:", receiptError);
-        }
-      }
 
       return NextResponse.json({
         success: true,
@@ -176,8 +150,8 @@ export async function POST(request: NextRequest) {
     } catch (distributionError: any) {
       console.error("❌ [MANUAL API] Error during token distribution:", distributionError);
 
-      // Update record as failed
-      await updateDoc(doc(db, 'manualTokenDistributions', distributionId), {
+      // Update record as failed using Admin SDK
+      await db.collection('manualTokenDistributions').doc(distributionId).update({
         status: 'failed',
         error: distributionError.message || 'Distribution failed',
         updatedAt: new Date()

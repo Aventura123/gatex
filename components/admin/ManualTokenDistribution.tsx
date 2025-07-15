@@ -428,7 +428,7 @@ const ManualTokenDistribution: React.FC<ManualDistributionProps> = ({
             <div className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 ${
               result.success ? 'bg-green-500' : 'bg-red-500'
             }`}>
-              <span className="block w-full h-full rounded-full text-white text-xs flex items-center justify-center">
+              <span className="flex w-full h-full rounded-full text-white text-xs items-center justify-center">
                 {result.success ? '✓' : '✗'}
               </span>
             </div>

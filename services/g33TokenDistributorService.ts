@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
-import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { getHttpRpcUrls } from '../config/rpcConfig';
+import { initAdmin } from '../lib/firebaseAdmin';
+import { getFirestore } from 'firebase-admin/firestore';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -29,18 +30,6 @@ const DISTRIBUTOR_ABI = [
   "function totalDonationsUsd() external view returns (uint256)"
 ];
 
-// List of reliable RPC URLs for the Polygon network
-const POLYGON_RPC_URLS = [
-  "https://polygon-rpc.com",
-  "https://polygon.llamarpc.com",
-  "https://rpc-mainnet.maticvigil.com",
-  "https://polygon-mainnet.public.blastapi.io",
-  "https://polygon-bor.publicnode.com",
-  "https://polygon.meowrpc.com",
-  "wss://polygon-mainnet.g.alchemy.com/v2/demo", // Alchemy public WS
-  "wss://ws-matic-mainnet.chainstacklabs.com"   // ChainStack WS
-];
-
 // List of reliable CORS proxies that can help bypass network restrictions
 const CORS_PROXIES = [
   "https://corsproxy.io/?",
@@ -48,17 +37,19 @@ const CORS_PROXIES = [
   "https://api.allorigins.win/raw?url="
 ];
 
-// Reliable RPC endpoint to use with proxy
-const RELIABLE_RPC_ENDPOINTS = [
-  "https://polygon-rpc.com",
-  "https://polygon.llamarpc.com"
-];
+// Cache for working RPC URLs (in memory for this session)
+interface RpcCache {
+  url: string;
+  lastTested: number;
+  latency: number;
+}
 
-// Local endpoints for development
-const LOCAL_RPC_URLS = [
-  "http://127.0.0.1:8545", // Default Ganache / Hardhat
-  "http://localhost:8545"  // Alternative
-];
+// Global cache for working RPCs (sorted by performance)
+let workingRpcCache: RpcCache[] = [];
+const RPC_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+
+// Performance tracking
+let lastSuccessfulMethod: 'standard' | 'custom' | null = null;
 
 // Distributor and token contract addresses defined via environment variable
 const DISTRIBUTOR_ADDRESS = process.env.G33_TOKEN_DISTRIBUTOR_ADDRESS || "0x137c762cb3eea5c8e5a6ed2fdf41dd47b5e13455";
@@ -166,136 +157,286 @@ class G33TokenDistributorService {
   private lastInitAttempt: number = 0;
   private privateKey: string | null = null;
   private isDevMode: boolean = process.env.NODE_ENV === 'development';
+  private db: FirebaseFirestore.Firestore | null = null;
 
   constructor() {
     this.init().catch(console.error);
   }
 
   /**
-   * Tries to create a reliable provider for the Polygon network
+   * Creates a custom provider with optimized fetch implementation
    */
-  private async createProvider(): Promise<ethers.providers.Provider | null> {
-    const providerUrls = [
-      { url: "https://polygon-rpc.com" },
-      { url: "https://rpc.ankr.com/polygon" },
-      { url: "https://1rpc.io/matic" }
-    ];
-
-    // Try direct connection first
-    for (const {url} of providerUrls) {
+  private createCustomFetchProvider(url: string): ethers.providers.JsonRpcProvider {
+    console.log(`🚀 Creating optimized provider for: ${url}`);
+    
+    // Define optimized fetch function
+    const optimizedFetch = async (rpcUrl: string, payload: string): Promise<string> => {
+      const headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      };
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
       try {
-        console.log(`🔄 Trying to connect to RPC: ${url}`);
-        
-        // Create provider with timeout
-        const provider = new ethers.providers.JsonRpcProvider({ 
-          url,
-          timeout: 10000 // 10 seconds timeout
+        const response = await fetch(rpcUrl, {
+          method: 'POST',
+          headers,
+          body: payload,
+          signal: controller.signal
         });
         
-        // Test the connection with additional timeout
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return await response.text();
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    };
+    
+    // Create provider with custom configuration
+    const provider = new ethers.providers.JsonRpcProvider({
+      url,
+      timeout: 8000 // Shorter timeout for faster fallback
+    });
+    
+    // Override the send method for better control
+    const originalSend = provider.send.bind(provider);
+    provider.send = async (method: string, params: Array<any>): Promise<any> => {
+      try {
+        const payload = JSON.stringify({
+          method,
+          params,
+          id: Date.now(), // Use timestamp for unique IDs
+          jsonrpc: "2.0"
+        });
+        
+        const result = await optimizedFetch(url, payload);
+        const json = JSON.parse(result);
+        
+        if (json.error) {
+          throw new Error(json.error.message || "RPC Error");
+        }
+        
+        return json.result;
+      } catch (error) {
+        console.warn(`Custom fetch failed for ${method}, trying original:`, error instanceof Error ? error.message : String(error));
+        // Fallback to original method
+        return originalSend(method, params);
+      }
+    };
+    
+    return provider;
+  }
+
+  /**
+   * Tests a single RPC endpoint quickly
+   */
+  private async quickTestRpc(url: string): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Quick 3s test
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return !data.error && data.result;
+      }
+      
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Tries to create a reliable provider for the Polygon network (OPTIMIZED)
+   */
+  private async createProvider(): Promise<ethers.providers.Provider | null> {
+    console.log(`🔄 Setting up optimized provider for Polygon network...`);
+
+    // Check if we have cached working RPCs
+    const now = Date.now();
+    const validCachedRpcs = workingRpcCache.filter(cache => 
+      (now - cache.lastTested) < RPC_CACHE_TTL
+    );
+
+    // If we have cached working RPCs, try them first
+    if (validCachedRpcs.length > 0) {
+      console.log(`🏆 Found ${validCachedRpcs.length} cached working RPCs, trying best one first...`);
+      
+      // Sort by latency (fastest first)
+      validCachedRpcs.sort((a, b) => a.latency - b.latency);
+      
+      for (const cachedRpc of validCachedRpcs.slice(0, 2)) { // Try top 2
+        try {
+          console.log(`⚡ Trying cached RPC: ${cachedRpc.url} (${cachedRpc.latency}ms)`);
+          const provider = this.createCustomFetchProvider(cachedRpc.url);
+          
+          const blockNumber = await Promise.race([
+            provider.getBlockNumber(),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 4000) // Quick test
+            )
+          ]);
+          
+          console.log(`✅ Cached provider connected instantly! Block: ${blockNumber}`);
+          lastSuccessfulMethod = 'custom'; // Mark as successful
+          return provider;
+        } catch (error) {
+          console.warn(`⚠️ Cached RPC failed: ${cachedRpc.url}`);
+          // Remove from cache if it fails
+          workingRpcCache = workingRpcCache.filter(c => c.url !== cachedRpc.url);
+        }
+      }
+    }
+
+    // Get RPC URLs from centralized config
+    const rpcUrls = getHttpRpcUrls('polygon');
+    
+    if (rpcUrls.length === 0) {
+      console.error('❌ No RPC URLs configured for Polygon network');
+      return null;
+    }
+
+    // OPTIMIZATION: Start with custom fetch provider since it works
+    // Try the most reliable URLs first with custom fetch
+    const priorityUrls = [
+      rpcUrls[0] || "https://polygon-mainnet.infura.io/v3/7b71460a7cfd447295a93a1d76a71ed6",
+      "https://polygon-rpc.com",
+      "https://polygon-bor.publicnode.com"
+    ];
+
+    // Quick parallel test of top URLs
+    console.log(`🏃‍♂️ Quick testing top RPC endpoints...`);
+    const quickTests = priorityUrls.map(async (url) => {
+      const start = Date.now();
+      const isWorking = await this.quickTestRpc(url);
+      const latency = Date.now() - start;
+      return { url, isWorking, latency };
+    });
+
+    const testResults = await Promise.allSettled(quickTests);
+    const workingUrls = testResults
+      .filter((result): result is PromiseFulfilledResult<{url: string, isWorking: boolean, latency: number}> => 
+        result.status === 'fulfilled' && result.value.isWorking)
+      .map(result => result.value)
+      .sort((a, b) => a.latency - b.latency); // Sort by latency
+
+    // Update cache with working URLs
+    const now2 = Date.now();
+    workingUrls.forEach(({ url, latency }) => {
+      // Remove existing entry for this URL
+      workingRpcCache = workingRpcCache.filter(c => c.url !== url);
+      // Add new entry
+      workingRpcCache.push({ url, lastTested: now2, latency });
+    });
+
+    // If we found working URLs, use the best strategy based on last success
+    if (workingUrls.length > 0) {
+      const bestUrl = workingUrls[0];
+      
+      // Try the method that worked last time first
+      if (lastSuccessfulMethod === 'custom') {
+        try {
+          console.log(`⚡ Using optimized provider (last successful method): ${bestUrl.url} (${bestUrl.latency}ms)`);
+          const provider = this.createCustomFetchProvider(bestUrl.url);
+          const blockNumber = await provider.getBlockNumber();
+          console.log(`✅ Optimized provider connected. Block: ${blockNumber}`);
+          return provider;
+        } catch (error) {
+          console.warn(`⚠️ Optimized provider failed:`, error instanceof Error ? error.message : String(error));
+        }
+      } else {
+        // Try standard first if it was successful last time
+        try {
+          console.log(`⚡ Using standard provider (last successful method): ${bestUrl.url} (${bestUrl.latency}ms)`);
+          const provider = new ethers.providers.JsonRpcProvider({ 
+            url: bestUrl.url,
+            timeout: 5000
+          });
+          
+          const blockNumber = await Promise.race([
+            provider.getBlockNumber(),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            )
+          ]);
+          
+          console.log(`✅ Standard provider connected. Block: ${blockNumber}`);
+          lastSuccessfulMethod = 'standard';
+          return provider;
+        } catch (error) {
+          console.warn(`⚠️ Standard provider failed, trying custom:`, error instanceof Error ? error.message : String(error));
+          
+          // Fallback to custom
+          try {
+            const provider = this.createCustomFetchProvider(bestUrl.url);
+            const blockNumber = await provider.getBlockNumber();
+            console.log(`✅ Custom provider connected as fallback. Block: ${blockNumber}`);
+            lastSuccessfulMethod = 'custom';
+            return provider;
+          } catch (customError) {
+            console.warn(`⚠️ Custom provider also failed:`, customError instanceof Error ? customError.message : String(customError));
+          }
+        }
+      }
+    }
+
+    // Fallback: Try standard providers with shorter timeouts
+    console.log(`🔄 Falling back to standard providers...`);
+    for (const url of rpcUrls.slice(0, 3)) { // Only try first 3
+      try {
+        const provider = new ethers.providers.JsonRpcProvider({ 
+          url,
+          timeout: 5000 // Shorter timeout
+        });
+        
         const blockNumber = await Promise.race([
           provider.getBlockNumber(),
           new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout')), 5000)
+            setTimeout(() => reject(new Error('Timeout')), 3000)
           )
         ]);
         
-        console.log(`✅ Successfully connected to RPC ${url}. Current block: ${blockNumber}`);
+        console.log(`✅ Standard provider connected to ${url}. Block: ${blockNumber}`);
+        lastSuccessfulMethod = 'standard'; // Mark as successful
         return provider;
       } catch (error) {
-        console.warn(`❌ Failed to connect to RPC ${url}:`, error instanceof Error ? error.message : String(error));
+        console.warn(`❌ Standard provider failed for ${url}`);
       }
     }
-    
-    // If all direct connections fail, try via CORS proxy
-    console.log("⚠️ All direct connections failed. Trying via CORS proxy...");
-    
-    for (const baseRpcUrl of RELIABLE_RPC_ENDPOINTS) {
-      const proxiedProvider = await createProxiedProvider(baseRpcUrl);
-      if (proxiedProvider) {
-        return proxiedProvider;
-      }
-    }
-    
-    // If still fails, try connection with custom HTTP fallback
+
+    // Last resort: Custom fetch with any URL
     try {
-      console.log("⚠️ Trying connection with custom HTTP fallback...");
-      
-      // Create a custom provider that uses fetch directly
-      const url = "https://polygon-rpc.com";
-      
-      // Define a custom fetch function
-      const myCustomFetch = async (url: string, payload: string): Promise<string> => {
-        try {
-          const headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Origin': 'https://gate33.com',
-            'Referer': 'https://gate33.com/'
-          };
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
-          
-          const response = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: payload,
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          return await response.text();
-        } catch (error) {
-          console.error("Error in custom fetch:", error);
-          throw error;
-        }
-      };
-      
-      // Use JsonRpcProvider with basic connection
-      const customProvider = new ethers.providers.JsonRpcProvider(url);
-      
-      // Override the provider's request sending function
-      const originalSend = customProvider.send;
-      customProvider.send = async (method: string, params: Array<any>): Promise<any> => {
-        try {
-          console.log(`Calling method ${method} with custom fetch`);
-          
-          const payload = JSON.stringify({
-            method,
-            params,
-            id: Math.floor(Math.random() * 1000000),
-            jsonrpc: "2.0"
-          });
-          
-          const result = await myCustomFetch(url, payload);
-          const json = JSON.parse(result);
-          
-          if (json.error) {
-            console.error(`RPC error: ${json.error.message || JSON.stringify(json.error)}`);
-            throw new Error(json.error.message || "Unknown error");
-          }
-          
-          return json.result;
-        } catch (error) {
-          console.error("Error sending RPC request:", error);
-          // Try the original method in case of failure
-          return originalSend(method, params);
-        }
-      };
-      
-      // Test the connection
-      const blockNumber = await customProvider.getBlockNumber();
-      console.log(`✅ Successfully connected using custom fetch. Block: ${blockNumber}`);
-      return customProvider;
+      console.log("🆘 Last resort: Custom fetch provider...");
+      const provider = this.createCustomFetchProvider(rpcUrls[0]);
+      const blockNumber = await provider.getBlockNumber();
+      console.log(`✅ Last resort provider connected. Block: ${blockNumber}`);
+      return provider;
     } catch (error) {
-      console.error("❌ Also failed to connect with custom fetch:", 
-        error instanceof Error ? error.message : String(error));
+      console.error("❌ All connection attempts failed:", error instanceof Error ? error.message : String(error));
     }
     
     // If in development, create a fake provider for testing
@@ -404,20 +545,13 @@ class G33TokenDistributorService {
    * Tests all available RPCs and returns a report
    */
   private async testAllRpcs(): Promise<RpcEndpoint[]> {
-    const endpoints: RpcEndpoint[] = [
-      {
-        url: "https://polygon-rpc.com",
-        network: { name: "polygon", chainId: 137 }
-      },
-      {
-        url: "https://rpc.ankr.com/polygon",
-        network: { name: "polygon", chainId: 137 }
-      },
-      {
-        url: "https://polygon.llamarpc.com",
-        network: { name: "polygon", chainId: 137 }
-      }
-    ];
+    // Get RPC URLs from centralized config
+    const rpcUrls = getHttpRpcUrls('polygon');
+    
+    const endpoints: RpcEndpoint[] = rpcUrls.map(url => ({
+      url,
+      network: { name: "polygon", chainId: 137 }
+    }));
     
     console.log("\n🔍 Starting RPC connectivity test...");
     
@@ -512,6 +646,16 @@ class G33TokenDistributorService {
       console.log("Environment NODE_ENV:", process.env.NODE_ENV);
       console.log("NEXT_PUBLIC_DEVELOPMENT_MODE:", process.env.NEXT_PUBLIC_DEVELOPMENT_MODE);
       
+      // Initialize Firebase Admin SDK
+      try {
+        initAdmin();
+        this.db = getFirestore();
+        console.log("✅ Firebase Admin initialized successfully");
+      } catch (adminError) {
+        console.error("❌ Failed to initialize Firebase Admin:", adminError);
+        throw new Error(`Firebase Admin initialization failed: ${adminError instanceof Error ? adminError.message : String(adminError)}`);
+      }
+      
       // Debug to check environment variables
       console.log("Related environment variables:", Object.keys(process.env).filter(key => 
         key.includes('DISTRIBUTOR') || 
@@ -552,8 +696,10 @@ class G33TokenDistributorService {
 
       while (retryCount < maxRetries) {
         try {
-          configDoc = await getDoc(doc(db, "settings", "contractConfig"));
-          if (configDoc.exists()) break;
+          if (!this.db) throw new Error("Firebase Admin not initialized");
+          const docRef = this.db.collection("settings").doc("contractConfig");
+          configDoc = await docRef.get();
+          if (configDoc.exists) break;
           throw new Error("Contract configuration document not found in Firebase");
         } catch (error) {
           retryCount++;
@@ -799,17 +945,17 @@ class G33TokenDistributorService {
       // NEW: Check if there was a recent identical transaction
       console.log("Checking recent donation history...");
       try {
-        const donationRegistry = collection(db, 'tokenDonations');
-        const q = query(
-          donationRegistry,
-          where('donorAddress', '==', donorAddress),
-          where('usdValue', '==', usdValue),
-          where('status', 'in', ['distributed', 'pending']),
-        );
+        if (!this.db) throw new Error("Firebase Admin not initialized");
         
-        const existingDonations = await getDocs(q);
+        const donationRegistry = this.db.collection('tokenDonations');
+        const query = donationRegistry
+          .where('donorAddress', '==', donorAddress)
+          .where('usdValue', '==', usdValue)
+          .where('status', 'in', ['distributed', 'pending']);
+        
+        const existingDonations = await query.get();
         if (!existingDonations.empty) {
-          const recentDonations = existingDonations.docs.filter(doc => {
+          const recentDonations = existingDonations.docs.filter((doc: any) => {
             const donation = doc.data();
             const timestamp = donation.createdAt?.toDate?.() || new Date(donation.createdAt);
             const minutesSince = (Date.now() - timestamp.getTime()) / (1000 * 60);
@@ -1208,7 +1354,8 @@ class G33TokenDistributorService {
     };
     
     // Add to Firebase with initial status 'pending'
-    const docRef = await addDoc(collection(db, 'tokenDonations'), tokenDonation);
+    if (!this.db) throw new Error("Firebase Admin not initialized");
+    const docRef = await this.db.collection('tokenDonations').add(tokenDonation);
     const donationId = docRef.id;
     
     try {
@@ -1220,7 +1367,7 @@ class G33TokenDistributorService {
         console.error(errorMsg);
         
         // Update donation status to 'failed'
-        await updateDoc(docRef, {
+        await docRef.update({
           status: 'failed',
           error: errorMsg
         });
@@ -1237,7 +1384,7 @@ class G33TokenDistributorService {
         console.error(errorMsg);
         
         // Update donation status to 'failed'
-        await updateDoc(docRef, {
+        await docRef.update({
           status: 'failed',
           error: errorMsg
         });
@@ -1247,7 +1394,7 @@ class G33TokenDistributorService {
       }
       
       // Successful distribution - update the record
-      await updateDoc(docRef, {
+      await docRef.update({
         status: 'distributed',
         distributionTxHash
       });
@@ -1265,7 +1412,7 @@ class G33TokenDistributorService {
       console.error("Critical error processing token distribution:", errorMessage);
       
       // Update status to failed
-      await updateDoc(docRef, {
+      await docRef.update({
         status: 'failed',
         error: errorMessage
       });
@@ -1386,8 +1533,15 @@ export const g33TokenDistributorService = new G33TokenDistributorService();
 // Update the distributor contract address in Firebase
 (async () => {
   try {
+    // Initialize Firebase Admin if not already done
+    if (!(global as any).firebaseAdminInitialized) {
+      initAdmin();
+      (global as any).firebaseAdminInitialized = true;
+    }
+    
+    const db = getFirestore();
     const distributorAddress = "0x137c762cb3eea5c8e5a6ed2fdf41dd47b5e13455"; // Address of the new G33TokenDistributorV2 contract
-    await updateDoc(doc(db, "settings", "contractConfig"), {
+    await db.collection("settings").doc("contractConfig").update({
       tokenDistributorAddress: distributorAddress
     });
     console.log("Distributor contract address updated in Firebase");
