@@ -1,4 +1,5 @@
 import { defaultWagmiConfig } from '@web3modal/wagmi/react';
+// @ts-ignore: No type definitions for 'viem/chains'
 import { mainnet, polygon, polygonMumbai, sepolia, arbitrum, optimism, avalanche, bsc, base, baseSepolia } from 'viem/chains';
 
 export const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '3ec307eb85c1037e53c027b7772aea00';
