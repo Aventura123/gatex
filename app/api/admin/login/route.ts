@@ -25,27 +25,34 @@ export async function POST(request: Request) {
 
     console.log('🔐 Attempting to authenticate admin:', username);
     
-    const normalizedUsername = username.toLowerCase().trim(); // Normalize to lowercase
-    console.log('🔄 Normalized username:', normalizedUsername);
-
     // 1. Buscar admin por username no Firestore (case-insensitive search)
     // Get all admins and filter manually since Firestore doesn't support case-insensitive queries
     const adminsCollection = collection(db, 'admins');
     const allAdminsSnapshot = await getDocs(adminsCollection);
     
+    console.log('📊 Total admins in database:', allAdminsSnapshot.docs.length);
+    
+    // Debug: Log all usernames in database
+    allAdminsSnapshot.docs.forEach((doc, index) => {
+      const data = doc.data();
+      console.log(`Admin ${index + 1}: "${data.username}"`);
+    });
+    
     let adminDoc = null;
     for (const doc of allAdminsSnapshot.docs) {
       const adminData = doc.data();
-      if (adminData.username && adminData.username.toLowerCase() === normalizedUsername) {
+      console.log(`🔍 Comparing: "${adminData.username?.toLowerCase()}" === "${username.toLowerCase()}"`);
+      if (adminData.username && adminData.username.toLowerCase() === username.toLowerCase()) {
         adminDoc = doc;
+        console.log('✅ Match found!');
         break;
       }
     }
     
-    console.log('📊 Case-insensitive search result:', adminDoc ? 'Admin found' : 'No admin found', 'for username:', normalizedUsername);
+    console.log('📊 Case-insensitive search result:', adminDoc ? 'Admin found' : 'No admin found', 'for username:', username);
     
     if (!adminDoc) {
-      console.log('❌ No admin found with username:', normalizedUsername);
+      console.log('❌ No admin found with username:', username);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -68,6 +75,8 @@ export async function POST(request: Request) {
 
     let passwordValid = false;
     try {
+      console.log('🔐 Input password length:', password.length);
+      console.log('🔐 Stored password hash starts with:', adminData.password.substring(0, 20) + '...');
       passwordValid = await compare(password, adminData.password);
     } catch (compareError) {
       console.error('❌ Error comparing passwords:', compareError);
@@ -80,9 +89,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // 3. Converter username para email interno
+    // 3. Converter username para email interno (usar username original do banco em lowercase)
     const role = adminData.role || 'admin';
-    const internalEmail = usernameToInternalEmail(normalizedUsername, role);
+    const internalEmail = usernameToInternalEmail(adminData.username.toLowerCase(), role);
     console.log('🔄 Internal email generated:', internalEmail);
 
     // 4. Inicializar Firebase Admin
@@ -127,7 +136,7 @@ export async function POST(request: Request) {
             // Criar nova conta Firebase Auth
             firebaseUser = await adminAuth.createUser({
               email: internalEmail,
-              displayName: adminData.name || normalizedUsername,
+              displayName: adminData.name || adminData.username,
               password: generateTempPassword() // Senha temporária para Firebase Auth
             });
             
@@ -152,7 +161,7 @@ export async function POST(request: Request) {
     // 6. Definir custom claims
     await adminAuth.setCustomUserClaims(firebaseUser.uid, {
       role: role,
-      username: normalizedUsername, // Use normalized username
+      username: adminData.username.toLowerCase(), // Use lowercase version of original username
       adminId: adminDoc.id
     });
     
@@ -166,7 +175,7 @@ export async function POST(request: Request) {
     // 8. Configurar cookie de sessão (manter compatibilidade)
     const tokenData = {
       id: adminDoc.id,
-      username: adminData.username,
+      username: adminData.username.toLowerCase(), // Use lowercase version of original username
       role: adminData.role || 'viewer',
       timestamp: Date.now(),
       firebaseUid: firebaseUser.uid
@@ -189,7 +198,7 @@ export async function POST(request: Request) {
       admin: {
         id: adminDoc.id,
         name: adminData.name || '',
-        username: adminData.username, // Mostrar username, não email
+        username: adminData.username.toLowerCase(), // Use lowercase version of original username
         email: adminData.email || '',
         role: adminData.role || 'viewer',
         photoURL: adminData.photoURL || adminData.photo || null,
