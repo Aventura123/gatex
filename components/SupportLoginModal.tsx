@@ -213,10 +213,15 @@ const SupportLoginModal: React.FC<SupportLoginModalProps> = ({ isOpen, onClose }
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <p className="text-xs text-gray-400">
               Support panel access for authorized personnel only
             </p>
+            <div>
+              <a href="/admin-forgot-password" className="text-xs text-orange-400 hover:text-orange-300 font-medium">
+                Forgot password?
+              </a>
+            </div>
           </div>
         </div>
       </div>
