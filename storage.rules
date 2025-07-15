@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Regras para upload de arquivos
+    // Permite que usuários autenticados façam upload em qualquer local
+    match /{allPaths=**} {
+      // Permite leitura para todos (público)
+      allow read: if true;
+      
+      // Permite escrita (upload/delete) apenas para usuários autenticados
+      allow write: if request.auth != null;
+    }
+    
+    // Regras específicas para uploads de usuários
+    match /uploads/{allPaths=**} {
+      // Permite leitura para todos
+      allow read: if true;
+      
+      // Permite escrita apenas para usuários autenticados
+      allow write: if request.auth != null;
+    }
+    
+    // Regras específicas para fotos de perfil
+    match /profile-photos/{userId}/{allPaths=**} {
+      // Permite leitura para todos
+      allow read: if true;
+      
+      // Permite escrita apenas para usuários autenticados
+      // Pode ser mais restritivo: apenas o próprio usuário ou admins
+      allow write: if request.auth != null;
+    }
+    
+    // Regras específicas para fotos de usuários
+    match /user-photos/{userId}/{allPaths=**} {
+      // Permite leitura para todos
+      allow read: if true;
+      
+      // Permite escrita apenas para usuários autenticados
+      allow write: if request.auth != null;
+    }
+    
+    // Regras para parceiros/empresas
+    match /partners/{allPaths=**} {
+      // Permite leitura para todos
+      allow read: if true;
+      
+      // Permite escrita apenas para usuários autenticados
+      allow write: if request.auth != null;
+    }
+    
+    // Regras para logos e imagens públicas
+    match /images/{allPaths=**} {
+      // Permite leitura para todos
+      allow read: if true;
+      
+      // Permite escrita apenas para usuários autenticados
+      allow write: if request.auth != null;
+    }
+  }
+}

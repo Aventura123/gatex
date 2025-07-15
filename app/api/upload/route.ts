@@ -1,51 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage, db } from "../../../lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { initAdmin } from "../../../lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
+import { getFirestore } from "firebase-admin/firestore";
 import { v4 as uuidv4 } from "uuid";
-import fs from 'fs';
-import path from 'path';
 
-// Ensure storage is properly initialized
-if (!storage) {
-  throw new Error("Firebase Storage is not initialized. Please check your Firebase configuration.");
-}
+// Initialize Firebase Admin
+initAdmin();
 
-// Ensure Firestore is properly initialized
-if (!db) {
-  throw new Error("Firestore is not initialized. Please check your Firebase configuration.");
-}
-
-// Função de teste para o Firebase Storage
-async function testUpload() {
-  const testFile = new Blob(["Hello, world!"], { type: "text/plain" });
-  if (!storage) {
-    throw new Error("Firebase Storage is not initialized.");
-  }
-  const storageRef = ref(storage, "test/test.txt");
-
-  try {
-    const snapshot = await uploadBytes(storageRef, testFile);
-    console.log("Upload successful:", snapshot.metadata.fullPath);
-  } catch (error) {
-    console.error("Upload failed:", error);
-  }
-}
-
-// Ensure only one GET function exists
-export async function GET(req: NextRequest) {
-  console.log("--- Executing testUpload via API ---");
-  try {
-    await testUpload();
-    return NextResponse.json({ success: true, message: "testUpload executed successfully." });
-  } catch (error: any) {
-    console.error("Error during testUpload execution via API:", error);
-    return NextResponse.json({ success: false, error: error.message || "Unknown error occurred." });
-  }
-}
+// Get Firebase Admin services
+const adminStorage = getStorage();
+const adminDb = getFirestore();
 
 export async function POST(req: NextRequest) {
-  // Adicionando logs detalhados para identificar problemas no upload
   console.log("Iniciando processo de upload...");
 
   try {
@@ -94,51 +60,58 @@ export async function POST(req: NextRequest) {
     console.log("Nome do arquivo gerado:", fileName);
 
     let downloadURL;
+    let filePath;
 
     try {
-      // Revert to original file path structure
-      const filePath = `user-photos/${userId}/${fileName}`;
+      // Upload para Firebase Storage usando Admin SDK
+      filePath = `user-photos/${userId}/${fileName}`;
       console.log("Gerando referência para:", filePath);
 
-      // Explicitly check storage initialization again right before use
-      if (!storage) {
-        console.error("CRITICAL: Firebase Storage object is null right before creating ref.");
-        throw new Error("Firebase Storage is not initialized.");
+      // Usar o bucket name definido na configuração
+      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      console.log("Bucket name:", bucketName);
+      
+      if (!bucketName) {
+        throw new Error("Storage bucket não está configurado. Verifique NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.");
       }
-      console.log("Verifying storage object immediately before ref():", storage ? 'Initialized' : 'Not Initialized');
-
-      const storageRef = ref(storage, filePath);
-      console.log("Storage reference created:", storageRef);
+      
+      const bucket = adminStorage.bucket(bucketName);
+      const fileRef = bucket.file(filePath);
 
       console.log("Iniciando upload para Firebase Storage...");
-      const snapshot = await uploadBytes(storageRef, buffer);
-      console.log("Upload concluído, obtendo URL de download...");
+      
+      // Upload do arquivo
+      await fileRef.save(buffer, {
+        metadata: {
+          contentType: file.type,
+        },
+      });
 
-      downloadURL = await getDownloadURL(snapshot.ref);
+      console.log("Upload concluído, tornando arquivo público...");
+      
+      // Tornar o arquivo público
+      await fileRef.makePublic();
+
+      // Obter URL de download
+      downloadURL = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
       console.log("URL de download obtida:", downloadURL);
 
     } catch (storageError: any) {
-      // Log the full error object, including serverResponse if available
       console.error("Detailed Firebase Storage Error:", JSON.stringify(storageError, null, 2));
-      console.error("Erro no Firebase Storage:", storageError.code, storageError.message, storageError.serverResponse, storageError.stack);
-      // Re-throw with a more specific message if possible, otherwise keep the generic one
+      console.error("Erro no Firebase Storage:", storageError.code, storageError.message);
       throw new Error(`Falha ao fazer upload para o Firebase Storage. Code: ${storageError.code}. Message: ${storageError.message}. Verifique as configurações e permissões.`);
     }
 
     // Salvando a URL da imagem no Firestore associada ao usuário
-    // Primeiro, verificar qual coleção contém o usuário (admin, employer ou seeker)
     const collections = ["admins", "employers", "seekers"];
     let userDoc = null;
     let collectionName = "";
 
     for (const collection of collections) {
-      if (!db) {
-        throw new Error("Firestore is not initialized.");
-      }
-      const userRef = doc(db!, collection, userId);
-      const docSnapshot = await getDoc(userRef);
+      const userRef = adminDb.collection(collection).doc(userId);
+      const docSnapshot = await userRef.get();
       
-      if (docSnapshot.exists()) {
+      if (docSnapshot.exists) {
         userDoc = docSnapshot;
         collectionName = collection;
         break;
@@ -147,39 +120,31 @@ export async function POST(req: NextRequest) {
 
     // Se encontrou o usuário, atualiza o documento
     if (userDoc) {
-      // Atualizar o documento com a URL da foto
-      if (!db) {
-        throw new Error("Firestore is not initialized.");
-      }
-      const userRef = doc(db!, collectionName, userId);
-      await updateDoc(userRef, {
+      const userRef = adminDb.collection(collectionName).doc(userId);
+      await userRef.update({
         photoURL: downloadURL,
-        photoPath: `user-photos/${userId}/${fileName}`,
+        photoPath: filePath,
         updatedAt: new Date().toISOString()
       });
       
       console.log(`Foto do usuário atualizada no Firestore (coleção: ${collectionName})`);
     } else {
       console.log("Usuário não encontrado no Firestore, criando registro na coleção 'users'");
-      // Criar um documento para o usuário na coleção users se ele não existir
-      if (!db) {
-        throw new Error("Firestore is not initialized.");
-      }
-      const userRef = doc(db!, "users", userId);
-      await setDoc(userRef, {
+      const userRef = adminDb.collection("users").doc(userId);
+      await userRef.set({
         photoURL: downloadURL,
-        photoPath: `user-photos/${userId}/${fileName}`,
+        photoPath: filePath,
         updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString()
       });
     }
 
-    // Salvar a URL da foto no localStorage através do front-end
     return NextResponse.json({ 
       success: true, 
       url: downloadURL,
-      storageMethod: "firebase"
+      storageMethod: "firebase-admin"
     }, { status: 200 });
+    
   } catch (error: any) {
     console.error("Erro durante o upload:", error.message, error.stack);
     return NextResponse.json({
