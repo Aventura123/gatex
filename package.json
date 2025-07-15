@@ -1,10 +1,11 @@
 {
-  "name": "gatex",
+  "name": "gatex-admin",
   "version": "1.0.0",
+  "description": "GateX Administrative Dashboard - Token distribution and system management",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Aventura123/Gatex.git"
+    "url": "https://github.com/Aventura123/GateX.git"
   },
   "engines": {
     "node": ">=20.0.0"

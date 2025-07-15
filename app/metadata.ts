@@ -2,12 +2,12 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Gate33 - Web3 Platform',
-  description: 'Complete Web3 platform for jobs, learn-to-earn and crypto tools',
-  applicationName: 'Gate33',
+  title: 'GateX Admin - Administrative Dashboard',
+  description: 'Administrative interface for GateX platform - Token distribution, user management and system monitoring',
+  applicationName: 'GateX Admin',
   appleWebApp: {
     capable: true,
-    title: 'Gate33',
+    title: 'GateX Admin',
     statusBarStyle: 'black-translucent',
   },
   formatDetection: {

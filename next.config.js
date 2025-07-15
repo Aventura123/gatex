@@ -8,7 +8,8 @@ const nextConfig = {
   // Environment específico para admin
   env: {
     NEXT_PUBLIC_APP_TYPE: 'admin',
-    NEXT_PUBLIC_APP_NAME: 'GateX',
+    NEXT_PUBLIC_APP_NAME: 'GateX Admin',
+    NEXT_PUBLIC_APP_VERSION: 'admin-only',
   },
   
   // Otimizações experimentais
