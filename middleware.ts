@@ -80,7 +80,10 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/support-dashboard/:path*',
-    '/api/admin/:path*',
+    
+    // Exclude password reset endpoints
+    '/((?!api/admin/forgot-password|api/admin/reset-password)api/admin/:path*)',
+    
     '/api/support/:path*',
     '/api/monitoring/:path*',
   ],

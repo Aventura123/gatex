@@ -139,16 +139,16 @@ export async function sendContactFormConfirmation({
 }
 
 /**
- * Sends a password reset email with a unique link
+ * Sends a password reset email specifically for admin users
  */
-export async function sendResetPasswordEmail(email: string, token: string) {
-  const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://gate33.net"}/reset-password?token=${token}`;
-  const subject = "Password Reset - Gate33";
-  const text = `You requested a password reset for your Gate33 account.\n\nClick the link below to create a new password:\n${resetUrl}\n\nIf you did not request this, please ignore this email.`;
+export async function sendAdminResetPasswordEmail(email: string, token: string) {
+  const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://gatex.site"}/admin-reset-password?token=${token}`;
+  const subject = "Admin Password Reset - GateX";
+  const text = `You requested a password reset for your GateX administrator account.\n\nClick the link below to create a new password:\n${resetUrl}\n\nIf you did not request this, please ignore this email.`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #FF6B00; border-radius: 5px;">
-      <h2 style="color: #FF6B00;">Password Reset</h2>
-      <p>You requested a password reset for your Gate33 account.</p>
+      <h2 style="color: #FF6B00;">Admin Password Reset</h2>
+      <p>You requested a password reset for your <strong>GateX administrator account</strong>.</p>
       <p><a href="${resetUrl}" style="color: #FF6B00; font-weight: bold;">Click here to reset your password</a></p>
       <p>Or copy and paste this link in your browser:<br/><span style="word-break: break-all;">${resetUrl}</span></p>
       <br/>

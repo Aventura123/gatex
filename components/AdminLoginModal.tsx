@@ -232,7 +232,7 @@ const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClose }) =>
             </div>
             
             <div className="mb-2 text-right">
-              <a href="/forgot-password" className="text-xs text-orange-400 hover:text-orange-300 font-medium">
+              <a href="/admin-forgot-password" className="text-xs text-orange-400 hover:text-orange-300 font-medium">
                 Forgot password?
               </a>
             </div>

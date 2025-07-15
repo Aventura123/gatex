@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getAdminFirestore, getAdminAuth } from '../../../../lib/firebaseAdmin';
-import { compare, hash } from 'bcryptjs';
-import { usernameToInternalEmail } from '../../../../utils/adminEmailConverter';
+import { hash } from 'bcryptjs';
 
-// POST: Reset password (admin only, requires current password)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { username, currentPassword, newPassword } = body;
+    const { token, newPassword } = body;
 
-    if (!username || !currentPassword || !newPassword) {
+    if (!token || !newPassword) {
       return NextResponse.json({ 
-        error: 'Username, current password, and new password are required' 
+        error: 'Token and new password are required' 
       }, { status: 400 });
     }
 
@@ -21,61 +19,86 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    console.log('🔐 Password reset request for admin:', username);
+    console.log('🔐 Processing password reset with token');
     
-    const normalizedUsername = username.toLowerCase();
     const db = getAdminFirestore();
     const adminAuth = getAdminAuth();
 
-    // 1. Find admin by username
-    const adminsSnapshot = await db.collection('admins')
-      .where('username', '==', normalizedUsername)
-      .get();
+    // 1. Find token in passwordResets collection
+    const tokenDoc = await db.collection('passwordResets').doc(token).get();
     
-    if (adminsSnapshot.empty) {
-      console.log('❌ No admin found with username:', normalizedUsername);
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    if (!tokenDoc.exists) {
+      console.log('❌ Invalid or expired token');
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 400 });
     }
 
-    const adminDoc = adminsSnapshot.docs[0];
+    const tokenData = tokenDoc.data();
+    
+    if (!tokenData) {
+      console.log('❌ Token data is undefined');
+      return NextResponse.json({ error: 'Invalid token data' }, { status: 400 });
+    }
+    
+    // Check if token is expired or already used
+    const now = new Date();
+    const expiresAt = new Date(tokenData.expiresAt);
+    
+    if (tokenData.used || now > expiresAt) {
+      console.log('❌ Token expired or already used');
+      return NextResponse.json({ error: 'Token expired or already used' }, { status: 400 });
+    }
+
+    // 2. Verify this is an admin password reset
+    if (tokenData.userType !== 'admin') {
+      console.error('❌ Invalid token type:', tokenData.userType);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
+    }
+
+    // 3. Get admin document
+    const adminDoc = await db.collection('admins').doc(tokenData.userId).get();
+    
+    if (!adminDoc.exists) {
+      console.error('❌ Admin not found:', tokenData.userId);
+      return NextResponse.json({ error: 'User not found' }, { status: 400 });
+    }
+
     const adminData = adminDoc.data();
+    if (!adminData) {
+      console.error('❌ Admin data is undefined');
+      return NextResponse.json({ error: 'User data could not be retrieved' }, { status: 500 });
+    }
     
     console.log('📋 Admin found:', adminDoc.id);
 
-    // 2. Verify current password
-    if (!adminData.password) {
-      console.error('❌ Admin found but no password defined');
-      return NextResponse.json({ error: 'Invalid administrator account' }, { status: 401 });
-    }
-
-    const passwordValid = await compare(currentPassword, adminData.password);
-    if (!passwordValid) {
-      console.log('❌ Current password validation failed');
-      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
-    }
-
-    // 3. Hash new password
+    // 4. Hash new password
     const hashedNewPassword = await hash(newPassword, 10);
 
-    // 4. Update password in Firestore
+    // 5. Update password in Firestore
     await db.collection('admins').doc(adminDoc.id).update({
       password: hashedNewPassword,
       updatedAt: new Date().toISOString(),
-      passwordChangedAt: new Date().toISOString()
+      passwordChangedAt: new Date().toISOString(),
+      requiresPasswordChange: false
     });
 
-    // 5. Update Firebase Auth password if user exists
+    // 6. Update Firebase Auth password if user exists
     if (adminData.firebaseAuthUid) {
       try {
         await adminAuth.updateUser(adminData.firebaseAuthUid, {
           password: newPassword // Firebase Auth handles its own hashing
         });
         console.log('✅ Firebase Auth password updated');
-      } catch (authError: any) {
-        console.warn('⚠️ Failed to update Firebase Auth password:', authError.message);
+      } catch (authError) {
+        console.warn('⚠️ Failed to update Firebase Auth password:', authError);
         // Continue - Firestore password was updated successfully
       }
     }
+
+    // 7. Mark token as used
+    await db.collection('passwordResets').doc(token).update({
+      used: true,
+      usedAt: new Date().toISOString()
+    });
 
     console.log('✅ Password reset completed for admin:', adminDoc.id);
 
@@ -83,9 +106,8 @@ export async function POST(request: Request) {
       success: true,
       message: 'Password reset successfully'
     });
-
   } catch (error) {
-    console.error('❌ Error during password reset:', error);
+    console.error('❌ Error processing password reset:', error);
     return NextResponse.json({ 
       error: 'Password reset failed. Please try again.' 
     }, { status: 500 });
