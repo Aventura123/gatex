@@ -25,22 +25,30 @@ export async function POST(request: Request) {
 
     console.log('🔐 Attempting to authenticate admin:', username);
     
-    const normalizedUsername = username.toLowerCase(); // Normalize to lowercase
+    const normalizedUsername = username.toLowerCase().trim(); // Normalize to lowercase
     console.log('🔄 Normalized username:', normalizedUsername);
 
-    // 1. Buscar admin por username no Firestore (case-insensitive)
+    // 1. Buscar admin por username no Firestore (case-insensitive search)
+    // Get all admins and filter manually since Firestore doesn't support case-insensitive queries
     const adminsCollection = collection(db, 'admins');
-    const qUsername = query(adminsCollection, where("username", "==", normalizedUsername));
-    let querySnapshot = await getDocs(qUsername);
+    const allAdminsSnapshot = await getDocs(adminsCollection);
     
-    console.log('📊 Query result:', querySnapshot.size, 'admin(s) found with username:', normalizedUsername);
+    let adminDoc = null;
+    for (const doc of allAdminsSnapshot.docs) {
+      const adminData = doc.data();
+      if (adminData.username && adminData.username.toLowerCase() === normalizedUsername) {
+        adminDoc = doc;
+        break;
+      }
+    }
     
-    if (querySnapshot.empty) {
+    console.log('📊 Case-insensitive search result:', adminDoc ? 'Admin found' : 'No admin found', 'for username:', normalizedUsername);
+    
+    if (!adminDoc) {
       console.log('❌ No admin found with username:', normalizedUsername);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const adminDoc = querySnapshot.docs[0];
     const adminData = adminDoc.data();
     
     console.log('📋 Admin document data:', {
