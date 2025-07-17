@@ -81,8 +81,6 @@ class Web3Service {
   private setupWalletConnectV2Listeners() {
     if (!this.wcV2Provider) return;
     
-    console.log('[WalletConnect] Setting up event listeners');
-    
     // Remove old listeners to avoid duplication
     try {
       this.wcV2Provider.removeAllListeners?.('session_delete');
@@ -96,26 +94,23 @@ class Web3Service {
 
     // Listener for session disconnection
     this.wcV2Provider.on?.('session_delete', () => {
-      console.log('[WalletConnect] Session deleted event received');
       this.disconnectWallet();
       window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
     });
     
     // Specific listener for disconnect event (complements session_delete)
     this.wcV2Provider.on?.('disconnect', () => {
-      console.log('[WalletConnect] Disconnect event received');
       this.disconnectWallet();
       window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
     });
     
     // Listener for reconnection event
     this.wcV2Provider.on?.('connect', () => {
-      console.log('[WalletConnect] Connect event received - connection established');
+      // Connection established
     });
 
     // Listener for account change with better error handling
     this.wcV2Provider.on?.('accountsChanged', (accounts: string[]) => {
-      console.log('[WalletConnect] Accounts changed:', accounts);
       
       if (!accounts || accounts.length === 0) {
         console.log('[WalletConnect] No accounts available, disconnecting wallet');

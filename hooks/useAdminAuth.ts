@@ -36,8 +36,6 @@ export function useAdminAuth() {
   });
 
   useEffect(() => {
-    console.log('🔍 Setting up admin auth monitor...');
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setAuthState({
@@ -77,14 +75,6 @@ export function useAdminAuth() {
         const username = internalEmailToUsername(email);
         const role = internalEmailToRole(email);
 
-        console.log('🔐 Admin auth state updated:', {
-          uid: user.uid,
-          email: email,
-          username: username,
-          role: role,
-          customClaims: customClaims
-        });
-
         setAuthState({
           user,
           isAdmin: role === 'admin' || customClaims.role === 'admin',
@@ -111,7 +101,6 @@ export function useAdminAuth() {
 
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up admin auth monitor');
       unsubscribe();
     };
   }, []);

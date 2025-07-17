@@ -85,10 +85,8 @@ export default function withAuth<P extends object>(
           else if (userType === 'support') {
             // Currently using simple token verification
             // Could be enhanced with Firestore verification if needed
-            console.log("Support token verification - basic check passed");
           }
 
-          console.log(`${userType} token is valid.`);
         } catch (err) {
           console.error(`Invalid or expired ${userType} token:`, err);
           router.replace(loginPath);

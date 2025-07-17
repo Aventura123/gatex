@@ -51,7 +51,6 @@ export async function getWalletBalanceWithFallback(): Promise<string> {
       if (data.balance) {
         // Cache the new balance for future use
         cacheWalletBalance(data.balance);
-        console.log('[WalletUtils] API balance fetched:', data.balance);
         return data.balance;
       }
 
@@ -59,7 +58,6 @@ export async function getWalletBalanceWithFallback(): Promise<string> {
       if (data.errors?.length > 0) {
         const cachedData = getCachedWalletBalance();
         if (cachedData) {
-          console.log('[WalletUtils] API error, using cached balance:', cachedData.balance);
           // Return the cached balance with a note that it's cached
           return `${cachedData.balance} (cached)`;
         }
@@ -69,12 +67,10 @@ export async function getWalletBalanceWithFallback(): Promise<string> {
     // If API call fails, try to get cached data
     const cachedData = getCachedWalletBalance();
     if (cachedData) {
-      console.log('[WalletUtils] API failed, using cached balance:', cachedData.balance);
       return `${cachedData.balance} (cached)`;
     }
 
     // If all else fails, return a default message
-    console.log('[WalletUtils] Connection issue - can\'t fetch balance');
     return "Connection issue - can't fetch balance";
   } catch (error) {
     console.error('[WalletUtils] Error fetching wallet balance:', error);
@@ -82,7 +78,6 @@ export async function getWalletBalanceWithFallback(): Promise<string> {
     // Try to get cached data in case of error
     const cachedData = getCachedWalletBalance();
     if (cachedData) {
-      console.log('[WalletUtils] Exception, using cached balance:', cachedData.balance);
       return `${cachedData.balance} (cached)`;
     }
 

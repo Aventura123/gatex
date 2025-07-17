@@ -186,7 +186,6 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
   useEffect(() => {
     const fetchAdminPermissions = async () => {
       try {
-        console.log("Fetching admin permissions...");
         setLoading(true);
         
         if (!db) {
@@ -197,12 +196,8 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
         const adminId = getLocalStorageItem("userId");
         const userName = getLocalStorageItem("userName") || "Unknown User";
         
-        console.log("Admin ID from localStorage:", adminId);
-        console.log("User Name from localStorage:", userName);
-        
         // Check if the user is André Ventura and force super_admin
         if (userName === "André Ventura" || adminId === "a4425bf7-3a96-4a94-a95c-51689181413e") {
-          console.log("Detected user André Ventura - Applying super_admin permissions");
           const superAdminRole: AdminRole = 'super_admin';
           if (typeof window !== 'undefined') {
             localStorage.setItem("userRole", superAdminRole);
@@ -245,7 +240,6 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
             canApproveCompanies: true,
             canEditContent: true,
           };
-          console.log("Super admin permissions applied:", fullPermissions);
           setRole(superAdminRole);
           setPermissions(fullPermissions);
           setError(null);
@@ -254,15 +248,11 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
         }
           // Normal processing for other users
         const userRole = getLocalStorageItem("userRole") || "viewer";
-        console.log("User Role from localStorage:", userRole);
 
         if (!adminId) {
-          console.warn("Admin ID not found in localStorage. User may not be authenticated.");
-          
           // Check if we have at least a userRole indicating some form of authentication
           const userRole = getLocalStorageItem("userRole");
           if (userRole && ['super_admin', 'admin', 'support'].includes(userRole)) {
-            console.log("Valid role found in localStorage, allowing access with default permissions");
             const defaultPerms = defaultRolePermissions[userRole as AdminRole];
             setRole(userRole as AdminRole);
             setPermissions(defaultPerms);
@@ -271,7 +261,6 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
             return;
           }
 
-          console.warn("No valid authentication found. Redirecting to:", redirectUrl);
           setError("Admin ID not found");
           setLoading(false);
           if (typeof window !== 'undefined') {
@@ -291,7 +280,6 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
         } else {
           // Otherwise, fetch from Firestore
           const adminDoc = await getDoc(doc(db, "admins", adminId));
-          console.log("Admin document fetched:", adminDoc.exists() ? adminDoc.data() : "Not found");
           
           if (!adminDoc.exists()) {
             throw new Error("Admin not found in Firestore");
@@ -299,11 +287,9 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
           
           const adminData = adminDoc.data();
           adminRole = adminData.role as AdminRole;
-          console.log("Admin role from Firestore:", adminRole);
           
           // Validation of the role obtained from Firestore
           if (!['super_admin', 'admin', 'support'].includes(adminRole)) {
-            console.warn(`Invalid role "${adminRole}" found in Firestore, defaulting to admin`);
             adminRole = 'admin';
           }
           
@@ -312,7 +298,6 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
             localStorage.setItem("userRole", adminRole);
           }
         }
-          console.log("Final admin role:", adminRole);
         
         // Get permissions for the role from API (which checks custom permissions first, then defaults)
         try {
@@ -323,22 +308,17 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
           
           if (rolePermissionsData.success) {
             adminPermissions = rolePermissionsData.permissions;
-            console.log("Permissions loaded from API:", adminPermissions);
           } else {
             // Fallback to default permissions
             adminPermissions = { ...defaultRolePermissions[adminRole] };
-            console.log("Using fallback default permissions:", adminPermissions);
           }
           
           setRole(adminRole);
           setPermissions(adminPermissions);
           setError(null);
         } catch (permissionsError) {
-          console.warn("Error loading role permissions from API, using defaults:", permissionsError);
           // Fallback to default permissions if API fails
           const adminPermissions = { ...defaultRolePermissions[adminRole] };
-          
-          console.log("Admin permissions:", adminPermissions);
           
           setRole(adminRole);
           setPermissions(adminPermissions);
@@ -376,12 +356,10 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
     
     // If it's André Ventura, ensure full permissions
     if (userName === "André Ventura" || adminId === "a4425bf7-3a96-4a94-a95c-51689181413e") {
-      console.log(`[OVERRIDE] Permission ${permission} granted for super_admin André Ventura`);
       return true;
     }
     
     const result = permissions?.[permission] === true;
-    console.log(`Checking permission: ${permission}, Current role: ${role}, Result:`, result);
     return result;
   }, [permissions, role]);
   

@@ -12,8 +12,6 @@ export async function syncUserRoleWithFirebase(
   additionalClaims: Record<string, any> = {}
 ): Promise<boolean> {
   try {
-    console.log('Sincronizando role para usuário:', user.uid, 'Role:', role);
-    
     // Primeiro, atualizar localStorage imediatamente
     localStorage.setItem('userRole', role);
     localStorage.setItem('firebaseToken', await user.getIdToken());
@@ -22,12 +20,10 @@ export async function syncUserRoleWithFirebase(
     // Verificar se o usuário já tem o custom claim correto
     const idTokenResult = await user.getIdTokenResult();
     if (idTokenResult.claims.role === role) {
-      console.log('Usuário já tem o custom claim correto:', role);
       return true;
     }
     
     // Chamar API para definir custom claims
-    console.log('Definindo custom claims via API...');
     const response = await fetch('/api/auth/set-custom-claims', {
       method: 'POST',
       headers: {
@@ -43,7 +39,6 @@ export async function syncUserRoleWithFirebase(
     });
     
     const responseData = await response.text();
-    console.log('Resposta da API set-custom-claims:', response.status, responseData);
     
     if (response.ok) {
       // Aguardar um pouco para o Firebase processar (importante no v13.x)
@@ -57,27 +52,18 @@ export async function syncUserRoleWithFirebase(
           tokenRefreshed = true;
           break;
         } catch (tokenError) {
-          console.warn(`Tentativa ${attempt + 1} de refresh token falhou:`, tokenError);
           if (attempt < 2) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
       
-      if (tokenRefreshed) {
-        console.log('Custom claims definidos com sucesso para role:', role);
-        return true;
-      } else {
-        console.warn('Custom claims definidos mas token refresh falhou');
-        return true; // Não falhar o login por isso
-      }
+      return true;
     } else {
       console.error('Erro ao definir custom claims. Status:', response.status);
-      console.error('Response:', responseData);
       
       try {
         const errorData = JSON.parse(responseData);
-        console.error('Error details:', errorData);
         
         // Se é erro de usuário não encontrado, pode ser um problema de timing
         if (errorData.code === 'auth/user-not-found') {

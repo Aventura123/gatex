@@ -59,7 +59,6 @@ export async function logSystemActivity(
 
     // Add the document
     const docRef = await addDoc(logsCollection, logData);
-    console.log(`Log successfully registered: ${action} by ${user}`);
     return docRef.id;
   } catch (error) {
     console.error("Error registering log:", error);

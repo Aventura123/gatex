@@ -11,7 +11,6 @@ export function useToast() {
 
   const toast = (newToast: Toast) => {
     setToasts((prevToasts) => [...prevToasts, newToast]);
-    console.log(`[Toast] ${newToast.variant || "default"}: ${newToast.title} - ${newToast.description}`);
   };
 
   return { toast, toasts };
