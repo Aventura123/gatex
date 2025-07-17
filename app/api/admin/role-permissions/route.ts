@@ -34,6 +34,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: true,
     canAccessSettingsProfile: true,
     canAccessSettingsPermissions: true,
+    canAccessSettingsEmergencyToken: true,
     canAccessPayments: true, // Added missing property
     canAccessPaymentsConfig: true, // Added missing property
     canViewAnalytics: true,
@@ -70,6 +71,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: false,
     canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false, // Added missing property
     canAccessPaymentsConfig: false, // Added missing property
     canViewAnalytics: true,
@@ -106,6 +108,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: false,
     canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false, // Added missing property
     canAccessPaymentsConfig: false, // Added missing property
     canViewAnalytics: false,
