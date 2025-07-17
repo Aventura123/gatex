@@ -36,6 +36,7 @@ export interface AdminPermissions {
   canAccessSettings: boolean;
   canAccessSettingsProfile: boolean;
   canAccessSettingsPermissions: boolean;
+  canAccessSettingsEmergencyToken: boolean;
   canAccessPayments: boolean;
   canAccessPaymentsConfig: boolean;
   
@@ -77,6 +78,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: true,
     canAccessSettingsProfile: true,
     canAccessSettingsPermissions: true,
+    canAccessSettingsEmergencyToken: true,
     canAccessPayments: true,
     canAccessPaymentsConfig: true,
     canViewAnalytics: true,
@@ -113,6 +115,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: false,
     canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false,
     canAccessPaymentsConfig: false,
     canViewAnalytics: true,
@@ -148,6 +151,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSettings: false,
     canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false,
     canAccessPaymentsConfig: false,
     canViewAnalytics: false,
@@ -233,6 +237,7 @@ export const useAdminPermissions = (options: UseAdminPermissionsOptions = {}) =>
             canAccessSettings: true,
             canAccessSettingsProfile: true,
             canAccessSettingsPermissions: true,
+            canAccessSettingsEmergencyToken: true,
             canAccessPayments: true,
             canAccessPaymentsConfig: true,
             canViewAnalytics: true,

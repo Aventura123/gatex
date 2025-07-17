@@ -49,6 +49,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSystemActivity: true,
     canAccessSettings: true,    canAccessSettingsProfile: true,
     canAccessSettingsPermissions: true,
+    canAccessSettingsEmergencyToken: true,
     canAccessPayments: true,
     canAccessPaymentsConfig: true,
     canAccessTokenDistribution: true,
@@ -85,6 +86,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSystemActivity: false,
     canAccessSettings: false,    canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false,
     canAccessPaymentsConfig: false,
     canAccessTokenDistribution: false,
@@ -120,6 +122,7 @@ const defaultRolePermissions: Record<AdminRole, AdminPermissions> = {  super_adm
     canAccessSystemActivity: false,
     canAccessSettings: false,    canAccessSettingsProfile: false,
     canAccessSettingsPermissions: false,
+    canAccessSettingsEmergencyToken: false,
     canAccessPayments: false,
     canAccessPaymentsConfig: false,
     canAccessTokenDistribution: false,
@@ -171,6 +174,7 @@ const getPermissionDisplayName = (permissionKey: string): string => {  const per
     canAccessSettings: 'System Settings',
     canAccessSettingsProfile: 'My Profile',
     canAccessSettingsPermissions: 'Manage Admins & Permissions',
+    canAccessSettingsEmergencyToken: 'Emergency Token Withdrawal',
     canAccessPayments: 'Payments',
     canAccessPaymentsConfig: 'Payment Configuration',
     canAccessTokenDistribution: 'Token Distribution',
@@ -269,6 +273,7 @@ const permissionGroups = [
     children: [
       'canAccessSettingsProfile',
       'canAccessSettingsPermissions',
+      'canAccessSettingsEmergencyToken',
     ],
   },  // Permissões extras/legado
   {

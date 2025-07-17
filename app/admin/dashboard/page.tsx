@@ -25,6 +25,7 @@ import AdminNewsletterManager from "../../../components/admin/AdminNewsletterMan
 import AdminSocialMediaManager from "../../../components/admin/AdminSocialMediaManager";
 import AdminPartnersManager from "../../../components/admin/AdminPartnersManager";
 import Learn2EarnContractsPanel from "../../../components/ui/Learn2EarnContractsPanel";
+import EmergencyTokenPanel from "../../../components/admin/EmergencyTokenPanel";
 import SystemActivityMonitor from "../../../components/admin/SystemActivityMonitor";
 import TokenDistribution from "../../../components/admin/TokenDistribution";
 import StatsDashboard from "@/components/admin/StatsDashboard";
@@ -2153,6 +2154,19 @@ const fetchEmployersList = async () => {
                         Smart Contracts
                       </button>
                     </li>
+                    <li>
+                      <button
+                        className={`w-full text-left py-1.5 px-3 rounded-md text-sm ${
+                          activeSubTab === "emergency_withdrawal" ? 'bg-orange-500 text-white' : 'text-orange-400 hover:bg-orange-600/20'
+                        }`}
+                        onClick={() => {
+                          setActiveSubTab("emergency_withdrawal");
+                          if (isMobile) setMobileMenuOpen(false);
+                        }}
+                      >
+                        Emergency Withdrawal
+                      </button>
+                    </li>
                   </ul>
                 )}              </li>            )}
 
@@ -2303,6 +2317,19 @@ const fetchEmployersList = async () => {
                           }}
                         >
                           Manage Admins & Permissions
+                        </button>
+                      </li>
+                    )}
+                    {hasPermission('canAccessSettingsEmergencyToken') && (
+                      <li>
+                        <button
+                          className={`w-full text-left py-1.5 px-3 rounded-md text-sm ${activeSubTab === "emergency_token" ? 'bg-orange-500 text-white' : 'text-orange-400 hover:bg-orange-600/20'}`}
+                          onClick={() => {
+                            setActiveSubTab("emergency_token");
+                            if (isMobile) setMobileMenuOpen(false);
+                          }}
+                        >
+                          Emergency Token Withdrawal
                         </button>
                       </li>
                     )}
@@ -3707,6 +3734,11 @@ const fetchEmployersList = async () => {
                           </div>
                         </div>
                       )}
+                      {activeSubTab === "emergency_token" && hasPermission('canAccessSettingsEmergencyToken') && (
+                        <div className={`${isMobile ? 'space-y-4' : 'space-y-8'}`}>
+                          <EmergencyTokenPanel />
+                        </div>
+                      )}
                       {/* Optional: Add a message if settings tab is active but no sub-tab is available/selected */}
                       {!activeSubTab && (
                         <div className="text-gray-400 text-center py-4">
@@ -3913,6 +3945,13 @@ const fetchEmployersList = async () => {
                 {activeTab === "learn2earn" && activeSubTab === "contracts" && (
                   <div>
                     <Learn2EarnContractsPanel db={db} isMobile={isMobile} />
+                  </div>
+                )}
+
+                {/* Rendering of the "Emergency Withdrawal" section within Learn2Earn in the main dashboard area */}
+                {activeTab === "learn2earn" && activeSubTab === "emergency_withdrawal" && (
+                  <div>
+                    <EmergencyTokenPanel />
                   </div>
                 )}                {/* System Activity Monitor Section */}
                 {activeTab === "systemActivity" && (
