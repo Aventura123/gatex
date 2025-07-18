@@ -24,6 +24,7 @@ import WalletButton from '../../../components/WalletButton';
 import AdminNewsletterManager from "../../../components/admin/AdminNewsletterManager";
 import AdminSocialMediaManager from "../../../components/admin/AdminSocialMediaManager";
 import AdminPartnersManager from "../../../components/admin/AdminPartnersManager";
+import AdminEventsManager from "../../../components/admin/AdminEventsManager";
 import Learn2EarnContractsPanel from "../../../components/ui/Learn2EarnContractsPanel";
 import EmergencyTokenPanel from "../../../components/admin/EmergencyTokenPanel";
 import SystemActivityMonitor from "../../../components/admin/SystemActivityMonitor";
@@ -2233,6 +2234,17 @@ const fetchEmployersList = async () => {
                       >
                         Partners
                       </button>
+                    </li>
+                    <li>
+                      <button
+                        className={`w-full text-left py-1.5 px-3 rounded-md text-sm ${activeSubTab === "events" ? 'bg-orange-500 text-white' : 'text-orange-400 hover:bg-orange-600/20'}`}
+                        onClick={() => {
+                          setActiveSubTab("events");
+                          if (isMobile) setMobileMenuOpen(false);
+                        }}
+                      >
+                        Events
+                      </button>
                     </li>                </ul>
                 )}
               </li>            )}            {/* --- END MARKETING MENU --- */}
@@ -3998,6 +4010,16 @@ const fetchEmployersList = async () => {
                   <div>
                     <h2 className={`font-bold ${isMobile ? 'text-2xl text-center mb-4' : 'text-3xl mb-6 text-left'} text-orange-500`}>Partners Manager</h2>                    <div className="mt-6 bg-black/30 p-6 rounded-lg border border-gray-700 hover:border-orange-500 transition-colors">
                       <AdminPartnersManager />
+                    </div>
+                  </div>
+                )}
+
+                {/* Events Section */}
+                {activeTab === "marketing" && activeSubTab === "events" && (
+                  <div>
+                    <h2 className={`font-bold ${isMobile ? 'text-2xl text-center mb-4' : 'text-3xl mb-6 text-left'} text-orange-500`}>Events Manager</h2>
+                    <div className="mt-6 bg-black/30 p-6 rounded-lg border border-gray-700 hover:border-orange-500 transition-colors">
+                      <AdminEventsManager />
                     </div>
                   </div>
                 )}{/* Payment Settings Section */}
