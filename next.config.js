@@ -16,6 +16,11 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['@headlessui/react', '@heroicons/react', 'lucide-react'],
     webpackBuildWorker: true, // Use separate workers for webpack builds
+    scrollRestoration: true,
+    optimizeCss: true,
+    esmExternals: true,
+    // Otimizações para build mais rápido
+    cpus: Math.max(1, require('os').cpus().length - 1), // Use todos os CPUs disponíveis menos 1
   },
   
   // Bundle optimization para produção
@@ -37,56 +42,67 @@ const nextConfig = {
       // Configurar chunks menores para loading mais rápido
       config.optimization.splitChunks = {
         ...config.optimization.splitChunks,
-        maxSize: 200000, // 200KB max chunk size
+        maxSize: 150000, // 150KB max chunk size (reduzido)
         chunks: 'all',
         cacheGroups: {
-          // Chunk separado para Firebase
+          // Chunk separado para Firebase (prioridade alta)
           firebase: {
             name: 'firebase',
             test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
             chunks: 'all',
-            priority: 40,
-            maxSize: 150000,
+            priority: 50,
+            maxSize: 120000, // Reduzido para 120KB
+            enforce: true,
           },
-          // Chunk para bibliotecas Web3
+          // Chunk para bibliotecas Web3 (carregamento sob demanda)
           web3: {
             name: 'web3',
             test: /[\\/]node_modules[\\/](ethers|@walletconnect|@web3modal|@reown|@wagmi|viem|wagmi)[\\/]/,
-            chunks: 'all',
-            priority: 30,
-            maxSize: 200000,
+            chunks: 'async', // Mudado para async
+            priority: 40,
+            maxSize: 180000,
           },
-          // Chunk para charts
+          // Chunk para charts (carregamento sob demanda)
           charts: {
             name: 'charts',
             test: /[\\/]node_modules[\\/](chart\.js|react-chartjs-2|recharts|apexcharts|react-apexcharts|lightweight-charts)[\\/]/,
-            chunks: 'all',
-            priority: 25,
-            maxSize: 150000,
+            chunks: 'async', // Mudado para async
+            priority: 30,
+            maxSize: 120000,
           },
-          // Chunk para UI
-          ui: {
-            name: 'ui',
-            test: /[\\/]node_modules[\\/](@headlessui|@heroicons|lucide-react|framer-motion)[\\/]/,
-            chunks: 'all',
-            priority: 20,
-            maxSize: 100000,
-          },
-          // React chunk
+          // React chunk (prioridade alta)
           react: {
             name: 'react',
             test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
             chunks: 'all',
-            priority: 50,
-            maxSize: 100000,
+            priority: 60,
+            maxSize: 80000,
+            enforce: true,
           },
-          // Vendors padrão (menor prioridade, chunks menores)
-          default: {
+          // Chunk para UI (carregamento sob demanda)
+          ui: {
+            name: 'ui',
+            test: /[\\/]node_modules[\\/](@headlessui|@heroicons|lucide-react|framer-motion)[\\/]/,
+            chunks: 'async',
+            priority: 25,
+            maxSize: 80000,
+          },
+          // Vendors críticos (carregamento imediato)
+          vendors: {
             name: 'vendors',
-            test: /[\\/]node_modules[\\/]/,
+            test: /[\\/]node_modules[\\/](next|@next|@tanstack)[\\/]/,
             chunks: 'all',
+            priority: 45,
+            maxSize: 80000,
+            enforce: true,
+          },
+          // Vendors secundários (carregamento sob demanda)
+          vendorsSecondary: {
+            name: 'vendors-secondary',
+            test: /[\\/]node_modules[\\/]/,
+            chunks: 'async',
             priority: 10,
-            maxSize: 100000, // 100KB limit para vendors
+            maxSize: 60000,
             minChunks: 2,
           }
         }
@@ -94,6 +110,10 @@ const nextConfig = {
       
       // Otimizar resolução de módulos
       config.resolve.extensions = ['.tsx', '.ts', '.jsx', '.js', '.json'];
+      
+      // Adicionar otimizações de minificação
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = false;
       
       // Reduzir tamanho do bundle removendo source maps em produção
       config.devtool = false;
@@ -140,6 +160,17 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000, // 25 seconds
     pagesBufferLength: 2,
   },
+  
+  // Cache optimization para build mais rápido
+  generateBuildId: async () => {
+    // Use hash do package.json para cache consistency
+    const packageJson = require('./package.json');
+    const crypto = require('crypto');
+    return crypto.createHash('md5').update(JSON.stringify(packageJson.dependencies)).digest('hex');
+  },
+  
+  // Build optimization
+  excludeDefaultMomentLocales: true,
 };
 
 module.exports = nextConfig;

@@ -57,30 +57,27 @@ const FullScreenLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   // Verificar se o usuário está logado para decidir quais botões mostrar
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Add debugging to see what's in localStorage
-      console.log("Login check - userId:", localStorage.getItem("userId"));
-      console.log("Login check - userRole:", localStorage.getItem("userRole"));
+      // Adicionar debounce para evitar múltiplas verificações
+      const timeoutId = setTimeout(() => {
+        const hasToken = Boolean(localStorage.getItem("userId"));
+        setIsLoggedIn(hasToken);
+      }, 100);
       
-      const hasToken = Boolean(
-        localStorage.getItem("userId") // Check for admin/support
-      );
-      console.log("Login check - isLoggedIn:", hasToken);
-      setIsLoggedIn(hasToken);
+      return () => clearTimeout(timeoutId);
     }
   }, []);
 
-  // Force component re-render when localStorage changes
+  // Force component re-render when localStorage changes (otimizado)
   useEffect(() => {
     const handleStorageChange = () => {
-      const hasToken = Boolean(
-        localStorage.getItem("userId") // Check for admin/support
-      );
+      const hasToken = Boolean(localStorage.getItem("userId"));
       setIsLoggedIn(hasToken);
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    // Also listen for our custom login event
-    window.addEventListener('userLoggedIn', handleStorageChange);
+    // Usar passive listeners para melhor performance
+    const options = { passive: true };
+    window.addEventListener('storage', handleStorageChange, options);
+    window.addEventListener('userLoggedIn', handleStorageChange, options);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);

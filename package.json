@@ -14,6 +14,8 @@
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "node --max-old-space-size=8192 node_modules/.bin/next start",
+    "clean": "node scripts/clear-cache.js",
+    "build:clean": "npm run clean && npm run build",
     "migrate-seekers": "node scripts/migrate-seekers-to-auth.js",
     "git:init": "git init",
     "git:add": "git add .",

@@ -111,6 +111,24 @@ export default function App({ Component, pageProps }: { Component: React.Compone
   const router = useRouter();
   const metadata = getPageMetadata(router.pathname);
 
+  // Otimização especial para páginas de erro - não carregar QueryClient desnecessariamente
+  const is404Page = router.pathname === '/404' || router.pathname === '/_error';
+  
+  if (is404Page) {
+    return (
+      <>
+        <Head>
+          <title>{metadata.title}</title>
+          <meta name="description" content={metadata.description} />
+          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+          <link rel="shortcut icon" href="/favicon-32x32.png" type="image/png" />
+        </Head>
+        <Component {...pageProps} />
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
