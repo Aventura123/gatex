@@ -69,6 +69,13 @@ const EmergencyTokenPanel: React.FC = () => {
     if (walletAddress && supportedNetworks.length > 0 && activeNetwork) {
       // Only load if current network is supported
       if (supportedNetworks.includes(activeNetwork)) {
+        // Clear any cached data when network changes to ensure fresh data
+        setProblematicLearn2Earns([]);
+        setTotalProblems(0);
+        setTotalTokensAtRisk(ethers.BigNumber.from(0));
+        setRecoverableTokens(ethers.BigNumber.from(0));
+        setError(null);
+        
         loadProblematicLearn2Earns();
         loadOperationHistory();
       } else {
@@ -95,6 +102,8 @@ const EmergencyTokenPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     
+    console.log(`🔄 Starting Learn2Earn scan on ${activeNetwork} with optimized transaction hash search...`);
+    
     try {
       const problematicData: Learn2EarnHealthInfo[] = [];
       
@@ -115,10 +124,10 @@ const EmergencyTokenPanel: React.FC = () => {
         return;
       }
 
-      // Get RPC provider for reading blockchain data
-      const provider = web3Service.getProvider();
+      // Get RPC provider for reading blockchain data from the correct network
+      const provider = web3Service.createNetworkProvider(activeNetwork);
       if (!provider) {
-        throw new Error('No provider available');
+        throw new Error(`No provider available for network: ${activeNetwork}`);
       }
 
       // Create contract instance for reading
@@ -193,8 +202,8 @@ const EmergencyTokenPanel: React.FC = () => {
 
           // Only add to problematic list if there are issues
           if (issues.length > 0) {
-            // Get transaction hash from blockchain event
-            const transactionHash = await getTransactionHashFromBlockchain(i, contractData.contractAddress, provider);
+            // Get transaction hash from blockchain event (pass startTime for optimized search)
+            const transactionHash = await getTransactionHashFromBlockchain(i, contractData.contractAddress, provider, startTime.toNumber());
 
             // Calculate tokens that would be recovered
             const tokenPerParticipant = maxParticipants.gt(0) 
@@ -446,7 +455,7 @@ const EmergencyTokenPanel: React.FC = () => {
     }
   };
 
-  const getTransactionHashFromBlockchain = async (learn2earnId: number, contractAddress: string, provider: any): Promise<string> => {
+  const getTransactionHashFromBlockchain = async (learn2earnId: number, contractAddress: string, provider: any, startTime?: number): Promise<string> => {
     try {
       console.log(`Searching for transaction hash for Learn2Earn ID ${learn2earnId}`);
       
@@ -454,17 +463,54 @@ const EmergencyTokenPanel: React.FC = () => {
       const currentBlock = await provider.getBlockNumber();
       console.log(`Current block: ${currentBlock}`);
       
-      // Search in a larger range - last 100k blocks (roughly 2-3 days on Polygon)
-      const fromBlock = Math.max(0, currentBlock - 100000);
+      // Calculate intelligent search range based on Learn2Earn start time
+      let fromBlock: number;
+      if (startTime) {
+        // Assume Learn2Earn was created within 7 days before its start time
+        const creationTimeEstimate = startTime - (7 * 24 * 60 * 60); // 7 days before start
+        const currentTime = Math.floor(Date.now() / 1000);
+        const blocksAgo = Math.floor((currentTime - creationTimeEstimate) / 2.5); // ~2.5 seconds per block on Polygon
+        fromBlock = Math.max(0, currentBlock - blocksAgo);
+        console.log(`⚡ Optimized search: Learn2Earn starts at ${new Date(startTime * 1000).toLocaleDateString()}, searching from ${new Date(creationTimeEstimate * 1000).toLocaleDateString()}`);
+      } else {
+        // Fallback: search last 7 days (~240k blocks on Polygon)
+        fromBlock = Math.max(0, currentBlock - 240000);
+        console.log(`⚡ Fallback search: No start time provided, searching last 7 days`);
+      }
       
-      console.log(`Searching from block ${fromBlock} to ${currentBlock}`);
+      console.log(`Searching from block ${fromBlock} to ${currentBlock} (${((currentBlock - fromBlock) / 1000).toFixed(0)}k blocks)`);
+
+      // First try: Quick search using getLogs with topic filter for the Learn2Earn ID
+      try {
+        console.log(`🔍 Quick search: Looking for Learn2Earn ID ${learn2earnId} in contract logs...`);
+        const logs = await provider.getLogs({
+          fromBlock: fromBlock,
+          toBlock: 'latest',
+          address: contractAddress,
+          topics: [
+            null, // Any event signature
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(learn2earnId), 32) // Learn2Earn ID as indexed parameter
+          ]
+        });
+        
+        if (logs.length > 0) {
+          console.log(`✅ Quick search found ${logs.length} logs with Learn2Earn ID ${learn2earnId}`);
+          return logs[0].transactionHash;
+        }
+        
+        console.log(`Quick search found no logs, trying detailed event search...`);
+      } catch (quickError: any) {
+        console.log(`Quick search failed: ${quickError.message}, trying detailed event search...`);
+      }
 
       // Try multiple possible event signatures
       const possibleEvents = [
         "event Learn2EarnCreated(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)",
         "event Learn2EarnCreated(uint256 indexed id, address indexed creator, address indexed token, uint256 amount)",
         "event Created(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)",
-        "event NewLearn2Earn(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)"
+        "event NewLearn2Earn(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)",
+        "event Learn2EarnStarted(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)",
+        "event Learn2EarnAdded(uint256 indexed learn2earnId, address indexed creator, address indexed tokenAddress, uint256 tokenAmount)"
       ];
 
       for (const eventSignature of possibleEvents) {
@@ -473,15 +519,39 @@ const EmergencyTokenPanel: React.FC = () => {
           
           const contractInstance = new ethers.Contract(contractAddress, [eventSignature], provider);
           
-          // Get all events of this type first to see what's available
+          // Get all events of this type first to see what's available (limit to avoid RPC issues)
           const allEventsFilter = contractInstance.filters[Object.keys(contractInstance.filters)[0]]();
-          const allEvents = await contractInstance.queryFilter(allEventsFilter, fromBlock, 'latest');
+          
+          // Search in optimized chunks based on range size
+          const totalBlocks = currentBlock - fromBlock;
+          const chunkSize = totalBlocks < 100000 ? 25000 : 50000; // Smaller chunks for smaller ranges
+          let allEvents: any[] = [];
+          
+          for (let startBlock = fromBlock; startBlock < currentBlock; startBlock += chunkSize) {
+            const endBlock = Math.min(startBlock + chunkSize - 1, currentBlock);
+            try {
+              const chunkEvents = await contractInstance.queryFilter(allEventsFilter, startBlock, endBlock);
+              allEvents = allEvents.concat(chunkEvents);
+            } catch (chunkError: any) {
+              console.log(`Error searching chunk ${startBlock}-${endBlock}: ${chunkError.message}`);
+            }
+          }
           
           console.log(`Found ${allEvents.length} total events of this type`);
           
-          // Now filter for our specific learn2earnId
+          // Now filter for our specific learn2earnId using chunked search
           const specificFilter = contractInstance.filters[Object.keys(contractInstance.filters)[0]](learn2earnId);
-          const specificEvents = await contractInstance.queryFilter(specificFilter, fromBlock, 'latest');
+          let specificEvents: any[] = [];
+          
+          for (let startBlock = fromBlock; startBlock < currentBlock; startBlock += chunkSize) {
+            const endBlock = Math.min(startBlock + chunkSize - 1, currentBlock);
+            try {
+              const chunkEvents = await contractInstance.queryFilter(specificFilter, startBlock, endBlock);
+              specificEvents = specificEvents.concat(chunkEvents);
+            } catch (chunkError: any) {
+              console.log(`Error searching specific chunk ${startBlock}-${endBlock}: ${chunkError.message}`);
+            }
+          }
           
           console.log(`Found ${specificEvents.length} events for Learn2Earn ID ${learn2earnId}`);
           
@@ -499,13 +569,13 @@ const EmergencyTokenPanel: React.FC = () => {
       
       // If no specific events found, let's try to get ALL events from the contract 
       // and manually search through them
-      console.log(`No specific events found, searching ALL events from contract...`);
+      console.log(`No specific events found, searching ALL events from contract in optimized range...`);
       
       try {
-        // Get all logs from the contract in the range
+        // Get all logs from the contract in the optimized range
         const logs = await provider.getLogs({
           fromBlock: fromBlock,
-          toBlock: 'latest',
+          toBlock: currentBlock,
           address: contractAddress
         });
         

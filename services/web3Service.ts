@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-export type NetworkType = 'ethereum' | 'polygon' | 'binance' | 'avalanche' | 'optimism' | 'base';
+export type NetworkType = 'polygon' | 'binance' | 'avalanche' | 'optimism' | 'base';
 
 export interface WalletInfo {
   address: string;
@@ -57,8 +57,7 @@ class Web3Service {
   /**
    * Gets the name of a network from its chainId
    */  private getNetworkNameForChainId(chainId: number): string {
-    // Remove BSC Testnet (97) logic
-    if (chainId === 1) return 'Ethereum Mainnet';
+    // Remove Ethereum and BSC Testnet (97) logic
     if (chainId === 56) return 'Binance Smart Chain';
     if (chainId === 137) return 'Polygon Mainnet';
     if (chainId === 43114) return 'Avalanche C-Chain';
@@ -81,6 +80,8 @@ class Web3Service {
   private setupWalletConnectV2Listeners() {
     if (!this.wcV2Provider) return;
     
+    console.log('[WalletConnect] Setting up event listeners');
+    
     // Remove old listeners to avoid duplication
     try {
       this.wcV2Provider.removeAllListeners?.('session_delete');
@@ -93,28 +94,31 @@ class Web3Service {
     }
 
     // Listener for session disconnection
-    this.wcV2Provider.on?.('session_delete', () => {
-      this.disconnectWallet();
+    this.wcV2Provider.on?.('session_delete', async () => {
+      console.log('[WalletConnect] Session deleted event received');
+      await this.disconnectWallet();
       window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
     });
     
     // Specific listener for disconnect event (complements session_delete)
-    this.wcV2Provider.on?.('disconnect', () => {
-      this.disconnectWallet();
+    this.wcV2Provider.on?.('disconnect', async () => {
+      console.log('[WalletConnect] Disconnect event received');
+      await this.disconnectWallet();
       window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
     });
     
     // Listener for reconnection event
     this.wcV2Provider.on?.('connect', () => {
-      // Connection established
+      console.log('[WalletConnect] Connect event received - connection established');
     });
 
     // Listener for account change with better error handling
-    this.wcV2Provider.on?.('accountsChanged', (accounts: string[]) => {
+    this.wcV2Provider.on?.('accountsChanged', async (accounts: string[]) => {
+      console.log('[WalletConnect] Accounts changed:', accounts);
       
       if (!accounts || accounts.length === 0) {
         console.log('[WalletConnect] No accounts available, disconnecting wallet');
-        this.disconnectWallet();
+        await this.disconnectWallet();
         window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
       } else {
         try {
@@ -158,7 +162,7 @@ class Web3Service {
         
         if (!networkType) {
           console.log('[WalletConnect] Could not determine network type for chainId', numericChainId);
-          networkType = 'ethereum'; // Default
+          networkType = 'base'; // Default to base instead of polygon
         }
         
         // Re-initialize provider with the new chainId
@@ -305,7 +309,6 @@ class Web3Service {
       }
         // Initialize the provider with detected chainId, without forcing any specific network
       const networkName = chainId === 56 ? "bnb" : 
-                          chainId === 1 ? "homestead" : 
                           chainId === 137 ? "matic" :
                           chainId === 43114 ? "avalanche" :
                           chainId === 10 ? "optimism" : 
@@ -392,13 +395,15 @@ class Web3Service {
       throw new Error("NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set in .env.local");
     }
     
-    // Use the unified Infura key logic from rpcConfig
-    const ethRpcList = getHttpRpcUrls('ethereum');
-    const infuraRpc = ethRpcList.find(url => url.includes('infura.io'));
-    if (!infuraRpc || infuraRpc.includes('undefined')) {
-      throw new Error('Ethereum Infura RPC endpoint is not properly configured. Please check your INFURA_KEY in .env.local and rpcConfig.ts.');
-    }    // Add popular networks for better wallet compatibility
-    const chains = [1, 137, 56, 43114, 10, 8453]; // Added Avalanche (43114), Optimism (10), and Base (8453)
+    // Use Polygon as the primary RPC endpoint
+    const polygonRpcList = getHttpRpcUrls('polygon');
+    const polygonRpc = polygonRpcList[0]; // Use first polygon RPC
+    if (!polygonRpc) {
+      throw new Error('Polygon RPC endpoint is not properly configured. Please check your rpcConfig.ts.');
+    }
+
+    // Remove Ethereum (chain 1) from supported chains, Base as primary
+    const chains = [8453, 137, 56, 43114, 10]; // Base, Polygon, BSC, Avalanche, Optimism
     
     // Initialize with optimal configuration for general wallet compatibility
     console.log('[WalletConnect] Creating provider with chains:', chains);
@@ -406,14 +411,13 @@ class Web3Service {
       this.wcV2Provider = await EthereumProvider.init({
         projectId,
         chains,
-        optionalChains: [1, 137, 56, 43114, 10, 8453], // Include Avalanche, Optimism, and Base
+        optionalChains: [8453, 137, 56, 43114, 10], // Base, Polygon, BSC, Avalanche, Optimism
         showQrModal: true,        rpcMap: {
-          1: infuraRpc,
+          8453: "https://mainnet.base.org",
           137: "https://polygon-rpc.com",
           56: "https://bsc-dataseed.binance.org/",
           43114: "https://api.avax.network/ext/bc/C/rpc",
-          10: "https://mainnet.optimism.io",
-          8453: "https://mainnet.base.org"
+          10: "https://mainnet.optimism.io"
         },
         disableProviderPing: false, // Keep connection alive with pings
         // Use standard storage options that are compatible with WalletConnect types
@@ -464,8 +468,8 @@ class Web3Service {
         console.log('[WalletConnect] Connected network:', network);
       } catch (networkError) {
         console.error('[WalletConnect] Failed to get network:', networkError);
-        // Use a default network if we can't detect it
-        network = { chainId: 1, name: 'unknown' };
+        // Use Base as default network if we can't detect it
+        network = { chainId: 8453, name: 'base' };
       }
       
       this.walletInfo = {
@@ -534,7 +538,6 @@ class Web3Service {
           // Determine the network name based on chainId
         let networkName = "any";
         if (numericChainId === 56) networkName = "bnb";
-        else if (numericChainId === 1) networkName = "homestead";
         else if (numericChainId === 137) networkName = "matic";
         else if (numericChainId === 43114) networkName = "avalanche";
         else if (numericChainId === 10) networkName = "optimism";
@@ -587,7 +590,7 @@ class Web3Service {
     window.ethereum.on('accountsChanged', async (accounts: string[]) => {
       if (accounts.length === 0) {
         // User disconnected the wallet
-        this.disconnectWallet();
+        await this.disconnectWallet();
         window.dispatchEvent(new CustomEvent('web3WalletDisconnected'));
       } else {
         // User switched accounts
@@ -647,10 +650,189 @@ class Web3Service {
   /**
    * Disconnects the current wallet
    */
-  disconnectWallet() {
+  async disconnectWallet() {
+    console.log('[disconnectWallet] Starting complete wallet disconnection...');
+    
+    // Properly disconnect WalletConnect if it's active
+    if (this.wcV2Provider) {
+      try {
+        console.log('[disconnectWallet] Disconnecting WalletConnect provider...');
+        await this.wcV2Provider.disconnect();
+        console.log('[disconnectWallet] WalletConnect provider disconnected successfully');
+      } catch (error) {
+        console.warn('[disconnectWallet] Error disconnecting WalletConnect provider:', error);
+        // Continue with cleanup even if disconnect fails
+      }
+      
+      // Remove all event listeners to prevent memory leaks
+      try {
+        this.wcV2Provider.removeAllListeners?.();
+      } catch (error) {
+        console.warn('[disconnectWallet] Error removing WalletConnect listeners:', error);
+      }
+      
+      // Clear the WalletConnect provider reference
+      this.wcV2Provider = null;
+    }
+    
+    // Clear all wallet-related state
     this.provider = null;
     this.signer = null;
     this.walletInfo = null;
+    this.connectionError = null;
+
+    // Remove MetaMask event listeners to prevent memory leaks
+    if (typeof window !== 'undefined' && window.ethereum) {
+      try {
+        // Remove all event listeners from window.ethereum
+        window.ethereum.removeAllListeners?.();
+        
+        // If removeAllListeners is not available, try to remove specific listeners
+        if (!window.ethereum.removeAllListeners) {
+          window.ethereum.removeListener?.('chainChanged');
+          window.ethereum.removeListener?.('accountsChanged');
+          window.ethereum.removeListener?.('connect');
+          window.ethereum.removeListener?.('disconnect');
+        }
+        
+        console.log('[disconnectWallet] MetaMask event listeners removed');
+      } catch (error) {
+        console.warn('[disconnectWallet] Error removing MetaMask listeners:', error);
+      }
+    }
+    
+    // Clear all localStorage related to wallet data
+    if (typeof window !== 'undefined') {
+      try {
+        // Clear cached wallet balance using utility function
+        const { clearWalletCache } = await import('../utils/monitors/walletUtils');
+        clearWalletCache();
+        
+        // Clear any stored network preference
+        localStorage.removeItem('currentNetwork');
+        localStorage.removeItem('selectedNetwork');
+        
+        // Clear any WalletConnect specific storage
+        localStorage.removeItem('walletconnect');
+        localStorage.removeItem('wc@2:client:0.3//session');
+        localStorage.removeItem('wc@2:core:0.3//messages');
+        localStorage.removeItem('wc@2:core:0.3//subscription');
+        localStorage.removeItem('wc@2:core:0.3//history');
+        localStorage.removeItem('wc@2:core:0.3//expirer');
+        localStorage.removeItem('wc@2:core:0.3//keychain');
+        localStorage.removeItem('wc@2:core:0.3//pairing');
+        
+        // Clear additional WalletConnect data that might persist
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.startsWith('wc@2:') || 
+            key.startsWith('walletconnect') ||
+            key.includes('ethereum-provider') ||
+            key.includes('web3modal') ||
+            key.includes('@web3modal') ||
+            key.includes('wallet-connect') ||
+            key.includes('W3M_') ||
+            key.includes('wc_')
+          )) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key);
+            console.log(`[disconnectWallet] Cleared localStorage key: ${key}`);
+          } catch (error) {
+            console.warn(`[disconnectWallet] Failed to clear localStorage key ${key}:`, error);
+          }
+        });
+        
+        console.log('[disconnectWallet] All localStorage wallet data cleared');
+      } catch (error) {
+        console.warn('[disconnectWallet] Error clearing localStorage:', error);
+      }
+      
+      // Clear sessionStorage as well
+      try {
+        sessionStorage.removeItem('walletconnect');
+        sessionStorage.removeItem('currentNetwork');
+        sessionStorage.removeItem('selectedNetwork');
+        
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (
+            key.startsWith('wc@2:') || 
+            key.startsWith('walletconnect') ||
+            key.includes('ethereum-provider') ||
+            key.includes('web3modal') ||
+            key.includes('@web3modal') ||
+            key.includes('wallet-connect') ||
+            key.includes('W3M_') ||
+            key.includes('wc_')
+          )) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        
+        sessionKeysToRemove.forEach(key => {
+          try {
+            sessionStorage.removeItem(key);
+            console.log(`[disconnectWallet] Cleared sessionStorage key: ${key}`);
+          } catch (error) {
+            console.warn(`[disconnectWallet] Failed to clear sessionStorage key ${key}:`, error);
+          }
+        });
+        
+        console.log('[disconnectWallet] All sessionStorage wallet data cleared');
+      } catch (error) {
+        console.warn('[disconnectWallet] Error clearing sessionStorage:', error);
+      }
+      
+      // Clear IndexedDB data for WalletConnect and Web3Modal
+      try {
+        if ('indexedDB' in window) {
+          // Clear WalletConnect IndexedDB data
+          const dbNamesToDelete = [
+            'keyvaluestorage',
+            'wc@2:core',
+            'wc@2:sign-client',
+            'web3modal',
+            '@web3modal/storage'
+          ];
+          
+          for (const dbName of dbNamesToDelete) {
+            try {
+              const deleteRequest = indexedDB.deleteDatabase(dbName);
+              deleteRequest.onsuccess = () => {
+                console.log(`[disconnectWallet] Cleared IndexedDB: ${dbName}`);
+              };
+              deleteRequest.onerror = () => {
+                console.warn(`[disconnectWallet] Failed to clear IndexedDB: ${dbName}`);
+              };
+            } catch (error) {
+              console.warn(`[disconnectWallet] Error deleting IndexedDB ${dbName}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('[disconnectWallet] Error clearing IndexedDB:', error);
+      }
+    }
+    
+    // Dispatch disconnect event to notify all components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('web3WalletDisconnected', {
+        detail: { 
+          timestamp: Date.now(),
+          reason: 'User initiated disconnect'
+        }
+      }));
+    }
+    
+    console.log('[disconnectWallet] Complete wallet disconnection and cleanup finished');
   }
 
   /**
@@ -1569,11 +1751,11 @@ class Web3Service {
               continue;
             }
             
-            // If we've exhausted retries, return default with clear error message
-            this.connectionError = "Network detection issue. Using default configuration.";
+            // If we've exhausted retries, return Base as default with clear error message
+            this.connectionError = "Network detection issue. Using Base as default configuration.";
             return {
-              name: 'Ethereum (Fallback)',
-              chainId: 1 // Default Mainnet
+              name: 'Base (Fallback)',
+              chainId: 8453 // Default to Base
             };
           }
           

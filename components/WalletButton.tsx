@@ -8,7 +8,6 @@ import WalletModal from './WalletModal';
 // Helper function to get network color
 const getNetworkColor = (network: NetworkType): string => {
   switch (network) {
-    case 'ethereum': return 'blue';
     case 'polygon': return 'purple';
     case 'binance': return 'yellow';
     case 'avalanche': return 'red';
@@ -21,12 +20,6 @@ const getNetworkColor = (network: NetworkType): string => {
 // Helper function to get network details
 const getNetworkDetails = (network: NetworkType) => {
   switch (network) {
-    case 'ethereum':
-      return {
-        name: 'Ethereum Mainnet',
-        nativeCurrency: 'ETH',
-        color: 'bg-blue-500'
-      };
     case 'polygon':
       return {
         name: 'Polygon Mainnet',
@@ -163,7 +156,7 @@ const WalletButton: React.FC<WalletButtonProps> = ({
   const [showNetworkSuccess, setShowNetworkSuccess] = useState(false);
   // Prefer context networks if available
   const availableNetworks: NetworkType[] = (propNetworks || contextNetworks || [
-    "ethereum", "polygon", "binance", "avalanche", "optimism", "base"
+    "base", "polygon", "binance", "avalanche", "optimism"
   ]) as NetworkType[];
 
   // Format address for display
@@ -174,15 +167,29 @@ const WalletButton: React.FC<WalletButtonProps> = ({
 
   // Handle connect/disconnect
   const handleConnect = async (type: 'metamask' | 'walletconnect') => {
+    // Prevent multiple connection attempts
+    if (isConnectingWallet) {
+      console.log('[WalletButton] Connection already in progress, ignoring request');
+      return;
+    }
+    
     try {
       await connectWallet(type);
       if (onConnect && walletAddress) onConnect(walletAddress);
       setShowWalletOptions(false);
-    } catch {}
+    } catch (error) {
+      console.error('[WalletButton] Connection error:', error);
+    }
   };
-  const handleDisconnect = () => {
-    disconnectWallet();
-    if (onDisconnect) onDisconnect();
+  const handleDisconnect = async () => {
+    try {
+      await disconnectWallet();
+      if (onDisconnect) onDisconnect();
+    } catch (error) {
+      console.error('[WalletButton] Error during disconnect:', error);
+      // Still call onDisconnect even if there was an error
+      if (onDisconnect) onDisconnect();
+    }
   };
 
   // Handle network switch
@@ -227,17 +234,19 @@ const WalletButton: React.FC<WalletButtonProps> = ({
             {isConnectingWallet ? 'Connecting...' : title}
           </button>
           {showWalletOptions && !isConnectingWallet && (
-            <div className="absolute z-10 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 left-0">
+            <div className="absolute z-10 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 left-1/2 transform -translate-x-1/2">
               <button
                 onClick={() => handleConnect('metamask')}
-                className="w-full text-left px-4 py-2 hover:bg-orange-100 text-gray-800 rounded-t-lg flex items-center gap-2"
+                disabled={isConnectingWallet}
+                className="w-full text-left px-4 py-2 hover:bg-orange-100 text-gray-800 rounded-t-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span role="img" aria-label="MetaMask" className="mr-2">🦊</span>
                 MetaMask
               </button>
               <button
                 onClick={() => handleConnect('walletconnect')}
-                className="w-full text-left px-4 py-2 hover:bg-orange-100 text-gray-800 rounded-b-lg border-t border-gray-100 flex items-center gap-2"
+                disabled={isConnectingWallet}
+                className="w-full text-left px-4 py-2 hover:bg-orange-100 text-gray-800 rounded-b-lg border-t border-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span role="img" aria-label="WalletConnect" className="mr-2">🔗</span>
                 WalletConnect
