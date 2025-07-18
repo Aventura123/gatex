@@ -58,7 +58,7 @@ const SmartContractPayment: React.FC<SmartContractPaymentProps> = ({
     setError(null);
 
     try {
-      await web3Service.switchNetwork(network);
+      await web3Service.switchNetworkInMetamask(network);
       setWalletInfo(web3Service.getWalletInfo());
       await initializeContract();
     } catch (err: any) {
